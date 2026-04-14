@@ -44,7 +44,7 @@ DROP TABLE IF EXISTS volunteer_shifts;
 DROP TABLE IF EXISTS inventories;
 DROP TABLE IF EXISTS food_items;
 DROP TABLE IF EXISTS food_categories;
-DROP TABLE IF EXISTS staff_admin_permissions;
+DROP TABLE IF EXISTS user_admin_permissions;
 DROP TABLE IF EXISTS admin_permissions;
 DROP TABLE IF EXISTS staff;
 DROP TABLE IF EXISTS volunteers;

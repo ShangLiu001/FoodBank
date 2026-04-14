@@ -1,0 +1,1657 @@
+{
+  "info": {
+    "_postman_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "name": "PrimaryFeed",
+    "description": "PrimaryFeed Food Bank Management System – CS 5200 Group 6 (The Primary Keys)\n\n## Setup\n1. Import PrimaryFeed.postman_environment.json and select the PrimaryFeed environment.\n2. Run Auth → Login (Staff) to populate {{staff_token}}.\n3. Run Auth → Login (Volunteer) to populate {{volunteer_token}}.\n\n## Notes\n- Seed DML uses placeholder password hashes (hashed_pw_1, etc.) — not valid BCrypt.\n  Update user records with real BCrypt hashes before login tests will pass.\n- POST /api/shifts triggers a DB-level overlap check; a 400 with the trigger message is expected on conflict.\n- food_sku env var defaults to SKU-001 (first item in seed data).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (Staff)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('staff_token', json.token);",
+                  "    pm.test('Staff login OK', () => pm.response.to.have.status(200));",
+                  "    pm.test('Token present', () => pm.expect(json.token).to.be.a('string'));",
+                  "    pm.test('Role is ROLE_STAFF', () => pm.expect(json.role).to.eql('ROLE_STAFF'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice.nguyen@bafb.org\",\n  \"password\": \"REPLACE_WITH_ACTUAL_PASSWORD\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticate as staff user Alice Nguyen (user_id=1, branch 1). Saves {{staff_token}} on success.\n\n⚠️ DML seed uses plain-text placeholder hashes — replace with a real BCrypt hash or use a user you seeded with bcrypt."
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Volunteer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('volunteer_token', json.token);",
+                  "    pm.test('Volunteer login OK', () => pm.response.to.have.status(200));",
+                  "    pm.test('Token present', () => pm.expect(json.token).to.be.a('string'));",
+                  "    pm.test('Role is ROLE_VOLUNTEER', () => pm.expect(json.role).to.eql('ROLE_VOLUNTEER'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"carol.lee@bafb.org\",\n  \"password\": \"REPLACE_WITH_ACTUAL_PASSWORD\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticate as volunteer Carol Lee (user_id=3, volunteer_id=1, branch 2). Saves {{volunteer_token}} on success."
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Invalid — expect 401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice.nguyen@bafb.org\",\n  \"password\": \"wrong_password\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Expected: 401 {\"error\": \"Invalid credentials\"}"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Returns the authenticated user's profile decoded from the JWT."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "Inventory Records",
+          "item": [
+            {
+              "name": "Get All Inventory",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Inventory by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "1"]
+                },
+                "description": "inventory_id=1 → SKU-001 at branch 1 (quantity 0, expiry +45 days from seed)"
+              },
+              "response": []
+            },
+            {
+              "name": "Get Inventory by Branch",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/branch/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "branch", "1"]
+                },
+                "description": "All inventory records at branch_id=1 (Downtown Boston)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Expiring Inventory (3 days)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/expiring",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "expiring"]
+                },
+                "description": "Items where quantity > 0 and expiry_date is within the next 3 days."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Out-of-Stock Inventory",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/out-of-stock",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "out-of-stock"]
+                },
+                "description": "Items where quantity = 0. Both seed inventory records should appear here."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Inventory Record",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"foodItem\": { \"sku\": \"{{food_sku}}\" },\n  \"branch\": { \"branchId\": 1 },\n  \"quantity\": 100,\n  \"unit\": \"cans\",\n  \"expiryDate\": \"2027-06-30T00:00:00\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/inventory",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Inventory Record",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"foodItem\": { \"sku\": \"{{food_sku}}\" },\n  \"branch\": { \"branchId\": 1 },\n  \"quantity\": 95,\n  \"unit\": \"cans\",\n  \"expiryDate\": \"2027-06-30T00:00:00\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "1"]
+                },
+                "description": "Updates inventory_id=1. Body must include all required fields."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Inventory Record",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/2",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "2"]
+                },
+                "description": "⚠️ Deletes inventory_id=2 (SKU-001, branch 1, quantity 0 from seed). Replace with a safe test ID."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Food Items",
+          "item": [
+            {
+              "name": "Get All Food Items",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/food-items",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "food-items"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Food Item by SKU",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/food-items/{{food_sku}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "food-items", "{{food_sku}}"]
+                },
+                "description": "Uses {{food_sku}} env var (default: SKU-001, Canned Chickpeas)."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Food Item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sku\": \"SKU-TEST\",\n  \"foodName\": \"Test Food Item\",\n  \"foodDescription\": \"Created via Postman test\",\n  \"storageCondition\": \"Cool dry place\",\n  \"category\": { \"categoryId\": 1 }\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/food-items",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "food-items"]
+                },
+                "description": "sku is the PK (VARCHAR 45) — must be unique. category.categoryId must reference an existing food_categories row."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Food Item",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sku\": \"SKU-TEST\",\n  \"foodName\": \"Test Food Item (Updated)\",\n  \"foodDescription\": \"Updated via Postman\",\n  \"storageCondition\": \"Refrigerated\",\n  \"category\": { \"categoryId\": 2 }\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/food-items/SKU-TEST",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "food-items", "SKU-TEST"]
+                },
+                "description": "Run Create Food Item first so SKU-TEST exists."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Food Item",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/food-items/SKU-TEST",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "food-items", "SKU-TEST"]
+                },
+                "description": "⚠️ Deletes SKU-TEST. Will 409/500 if inventory records reference this SKU (FK constraint)."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Food Categories",
+          "item": [
+            {
+              "name": "Get All Categories",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/categories",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "categories"]
+                },
+                "description": "Read-only. Category names drive the tiered expiry logic in vw_expiring_inventory — do not mutate."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Category by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/inventory/categories/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "inventory", "categories", "1"]
+                },
+                "description": "category_id=1 → Canned Goods"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Donations",
+      "item": [
+        {
+          "name": "Donation Headers",
+          "item": [
+            {
+              "name": "Get All Donations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/donations",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donations"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Donation by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/donations/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donations", "1"]
+                },
+                "description": "donation_id=1: branch 1, donor John Carter, user Alice Nguyen, 2026-03-01"
+              },
+              "response": []
+            },
+            {
+              "name": "Get Donations by Branch",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/donations/branch/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donations", "branch", "1"]
+                },
+                "description": "Donations at branch_id=1 (Downtown Boston). Seed has donations 1, 2, 9 here."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Donations by Donor",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/donations/donor/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donations", "donor", "1"]
+                },
+                "description": "Donations from donor_id=1 (John Carter). Seed has donations 1 and 9."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Donation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"branch\": { \"branchId\": 1 },\n  \"donor\": { \"donorId\": 1 },\n  \"user\": { \"userId\": 1 },\n  \"donationDate\": \"2026-04-14T10:00:00\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/donations",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donations"]
+                },
+                "description": "user.userId references users.user_id (any role). branch, donor, and user must all exist."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Donation",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"branch\": { \"branchId\": 1 },\n  \"donor\": { \"donorId\": 2 },\n  \"user\": { \"userId\": 1 },\n  \"donationDate\": \"2026-04-14T10:30:00\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/donations/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donations", "1"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Donation",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/donations/10",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donations", "10"]
+                },
+                "description": "⚠️ Deletes donation_id=10 (last seed record, branch 9, donor Whole Foods). Will fail with FK error if donation_items reference it — delete items first."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Donation Items",
+          "item": [
+            {
+              "name": "Get Donation Items by Donation",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/donation-items/donation/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donation-items", "donation", "1"]
+                },
+                "description": "All line items for donation_id=1. Seed has 3 items: SKU-001 (120 cans), SKU-001 (38 cans, different expiry), SKU-011 (60 cans)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Donation Item by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/donation-items/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donation-items", "1"]
+                },
+                "description": "donation_item_id=1: donation 1, SKU-001, 120 cans, expiry 2026-12-31."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Donation Item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"donation\": { \"donationId\": 1 },\n  \"foodItem\": { \"sku\": \"{{food_sku}}\" },\n  \"quantity\": 50,\n  \"unit\": \"cans\",\n  \"expiryDate\": \"2026-11-30T00:00:00\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/donation-items",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donation-items"]
+                },
+                "description": "Unique key is (donation_id, food_sku, expiry_date). The expiryDate here differs from existing seed rows so it will not conflict."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Donation Item",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"donation\": { \"donationId\": 1 },\n  \"foodItem\": { \"sku\": \"{{food_sku}}\" },\n  \"quantity\": 115,\n  \"unit\": \"cans\",\n  \"expiryDate\": \"2026-12-31T00:00:00\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/donation-items/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donation-items", "1"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Donation Item",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/donation-items/14",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "donation-items", "14"]
+                },
+                "description": "⚠️ Deletes donation_item_id=14 (last seed item: donation 10, SKU-010, 12 tins)."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Distributions",
+      "item": [
+        {
+          "name": "Distribution Headers",
+          "item": [
+            {
+              "name": "Get All Distributions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/distributions",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distributions"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Distribution by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/distributions/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distributions", "1"]
+                },
+                "description": "distribution_id=1: branch 1, beneficiary Linda Park, user Alice Nguyen, 2026-03-03."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Distributions by Branch",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/distributions/branch/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distributions", "branch", "1"]
+                },
+                "description": "Distributions at branch_id=1. Seed has distributions 1, 2, 9."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Distributions by Beneficiary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/distributions/beneficiary/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distributions", "beneficiary", "1"]
+                },
+                "description": "Distributions for beneficiary_id=1 (Linda Park). Seed has distribution 1."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Distribution",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"branch\": { \"branchId\": 1 },\n  \"beneficiary\": { \"beneficiaryId\": 1 },\n  \"user\": { \"userId\": 1 },\n  \"distributionDate\": \"2026-04-14T11:00:00\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/distributions",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distributions"]
+                },
+                "description": "user.userId references users.user_id (any role — staff or volunteer may record)."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Distribution",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"branch\": { \"branchId\": 1 },\n  \"beneficiary\": { \"beneficiaryId\": 2 },\n  \"user\": { \"userId\": 1 },\n  \"distributionDate\": \"2026-04-14T11:30:00\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/distributions/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distributions", "1"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Distribution",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/distributions/9",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distributions", "9"]
+                },
+                "description": "⚠️ Deletes distribution_id=9 (branch 1, beneficiary Ruth Okafor). Delete its distribution_items first."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Distribution Items",
+          "item": [
+            {
+              "name": "Get Distribution Items by Distribution",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/distribution-items/distribution/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distribution-items", "distribution", "1"]
+                },
+                "description": "Line items for distribution_id=1. Seed: inventory_id 1 (5 units) and 4 (2 units)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Distribution Item by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/distribution-items/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distribution-items", "1"]
+                },
+                "description": "distribution_item_id=1: distribution 1, inventory_id 1, quantity 5."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Distribution Item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"distribution\": { \"distributionId\": 1 },\n  \"inventory\": { \"inventoryId\": 1 },\n  \"quantity\": 3\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/distribution-items",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distribution-items"]
+                },
+                "description": "inventory_id references inventories.inventory_id directly (not food_sku). Unique on (distribution_id, inventory_id)."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Distribution Item",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"distribution\": { \"distributionId\": 1 },\n  \"inventory\": { \"inventoryId\": 1 },\n  \"quantity\": 4\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/distribution-items/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distribution-items", "1"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Distribution Item",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/distribution-items/13",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "distribution-items", "13"]
+                },
+                "description": "⚠️ Deletes distribution_item_id=13 (distribution 9, inventory 14, 3 units — SKU-011)."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Beneficiaries",
+      "item": [
+        {
+          "name": "Get All Beneficiaries",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/beneficiaries",
+              "host": ["{{base_url}}"],
+              "path": ["api", "beneficiaries"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Beneficiary by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/beneficiaries/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "beneficiaries", "1"]
+            },
+            "description": "beneficiary_id=1: Linda Park, household 3, eligible."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Eligible Beneficiaries",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/beneficiaries/eligible",
+              "host": ["{{base_url}}"],
+              "path": ["api", "beneficiaries", "eligible"]
+            },
+            "description": "Returns beneficiaries with eligibility_status=1. All 10 seed records are eligible (Nina Kowalski was updated to eligible in DML)."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Beneficiary",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"beneficiaryFullName\": \"Test Beneficiary\",\n  \"householdSize\": 2,\n  \"phone\": \"6175559001\",\n  \"email\": \"test.beneficiary@test.com\",\n  \"eligibilityStatus\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/beneficiaries",
+              "host": ["{{base_url}}"],
+              "path": ["api", "beneficiaries"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Beneficiary",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"beneficiaryFullName\": \"Linda Park\",\n  \"householdSize\": 4,\n  \"phone\": \"6175553001\",\n  \"email\": \"linda.park@email.com\",\n  \"eligibilityStatus\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/beneficiaries/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "beneficiaries", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Beneficiary",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/beneficiaries/10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "beneficiaries", "10"]
+            },
+            "description": "⚠️ Deletes beneficiary_id=10 (Ruth Okafor). Will fail if distributions reference this beneficiary — delete distributions first."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Donors",
+      "item": [
+        {
+          "name": "Get All Donors",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/donors",
+              "host": ["{{base_url}}"],
+              "path": ["api", "donors"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Donor by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/donors/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "donors", "1"]
+            },
+            "description": "donor_id=1: John Carter, individual donor."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Donor",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"donorName\": \"Test Donor\",\n  \"donorType\": 0,\n  \"email\": \"test.donor@test.com\",\n  \"phone\": \"6175559002\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/donors",
+              "host": ["{{base_url}}"],
+              "path": ["api", "donors"]
+            },
+            "description": "donorType: 0=Individual, 1=Organization. email must be unique."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Donor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"donorName\": \"John Carter\",\n  \"donorType\": 0,\n  \"email\": \"john.carter@email.com\",\n  \"phone\": \"6175552001\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/donors/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "donors", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Donor",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/donors/8",
+              "host": ["{{base_url}}"],
+              "path": ["api", "donors", "8"]
+            },
+            "description": "⚠️ Deletes donor_id=8 (Trader Joe's). Will fail if donations reference this donor — delete donations first."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Volunteers",
+      "item": [
+        {
+          "name": "Volunteer Profiles",
+          "item": [
+            {
+              "name": "Get All Volunteers",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/volunteers",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "volunteers"]
+                },
+                "description": "Seed has 4 volunteers: Carol Lee (1), Eva Patel (2), Grace Wang (3), Iris Chen (4)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Volunteer by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/volunteers/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "volunteers", "1"]
+                },
+                "description": "volunteer_id=1: Carol Lee, weekends, background check cleared."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Volunteers by Branch",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/volunteers/branch/2",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "volunteers", "branch", "2"]
+                },
+                "description": "Volunteers whose user account is assigned to branch_id=2 (South End). Carol Lee (user_id=3) is at branch 2."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Volunteer Profile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user\": { \"userId\": 2 },\n  \"availability\": \"Weekdays\",\n  \"backgroundCheck\": 0\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/volunteers",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "volunteers"]
+                },
+                "description": "⚠️ user_id=2 (Bob Smith) is seeded as staff. Creating a volunteer profile for a staff user is allowed by the schema but creates an inconsistency. Use a userId that does not already have a volunteer or staff subtype record, or seed a new user first."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Volunteer Profile",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user\": { \"userId\": 3 },\n  \"availability\": \"Weekends and evenings\",\n  \"backgroundCheck\": 1\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/volunteers/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "volunteers", "1"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Volunteer Profile",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/volunteers/4",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "volunteers", "4"]
+                },
+                "description": "⚠️ Deletes volunteer_id=4 (Iris Chen, background_check=0). Delete any shifts for this volunteer first."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Shifts",
+          "item": [
+            {
+              "name": "Get All Shifts",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/shifts",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Shift by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/shifts/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts", "1"]
+                },
+                "description": "shift_id=1: volunteer 1 (Carol Lee), branch 1, 2026-04-05 09:00–12:00."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Shifts by Volunteer",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/shifts/volunteer/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts", "volunteer", "1"]
+                },
+                "description": "All shifts for volunteer_id=1 (Carol Lee)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Shifts by Branch",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/shifts/branch/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts", "branch", "1"]
+                },
+                "description": "Shifts at branch_id=1 (Downtown Boston)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Shifts by Date",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/shifts/date/2026-04-05",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts", "date", "2026-04-05"]
+                },
+                "description": "Shifts on 2026-04-05. Seed has shifts for volunteers 1 and 2 on this date."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Shift (Valid)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"volunteer\": { \"volunteerId\": 1 },\n  \"branch\": { \"branchId\": 2 },\n  \"shiftDate\": \"2026-05-10\",\n  \"shiftTimeStart\": \"09:00:00\",\n  \"shiftTimeEnd\": \"12:00:00\",\n  \"shiftNotes\": \"Postman test shift\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/shifts",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts"]
+                },
+                "description": "Creates a new shift for Carol Lee (volunteer_id=1) on a date with no existing shift — should succeed."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Shift (Trigger Overlap — expect 400)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"volunteer\": { \"volunteerId\": 1 },\n  \"branch\": { \"branchId\": 2 },\n  \"shiftDate\": \"2026-04-12\",\n  \"shiftTimeStart\": \"11:00:00\",\n  \"shiftTimeEnd\": \"14:00:00\",\n  \"shiftNotes\": \"Intentional overlap test\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/shifts",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts"]
+                },
+                "description": "Expected: 400 {\"error\": \"<trigger MESSAGE_TEXT>\"}\n\nVolunteer 1 already has a shift on 2026-04-12 09:00–12:00 at branch 1. This shift overlaps (11:00–14:00 at any branch) and should be rejected by trg_volunteer_shift_no_overlap_insert."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Shift",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" },
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"volunteer\": { \"volunteerId\": 1 },\n  \"branch\": { \"branchId\": 1 },\n  \"shiftDate\": \"2026-04-05\",\n  \"shiftTimeStart\": \"09:00:00\",\n  \"shiftTimeEnd\": \"13:00:00\",\n  \"shiftNotes\": \"Extended morning sorting shift\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/shifts/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts", "1"]
+                },
+                "description": "Extends shift_id=1 from 12:00 to 13:00. UPDATE trigger excludes the current row to avoid false self-conflict."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Shift",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/shifts/10",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "shifts", "10"]
+                },
+                "description": "⚠️ Deletes shift_id=10 (volunteer 1, branch 1, 2026-04-05 12:00–15:00 — the back-to-back shift from seed)."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reports (Staff Only)",
+      "item": [
+        {
+          "name": "Q1 — Food Items Available at Branch",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/1?branchId=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "1"],
+              "query": [{ "key": "branchId", "value": "1" }]
+            },
+            "description": "Returns food items with quantity > 0 at branch_id=1 (Downtown Boston).\n\nExpected 403 if called with {{volunteer_token}}."
+          },
+          "response": []
+        },
+        {
+          "name": "Q2 — Food Items Expiring Within 3 Days",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "2"]
+            },
+            "description": "Items where expiry_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 DAY) AND quantity > 0.\n\nSeed has several items with expiry DATE_ADD(CURDATE(), INTERVAL 3 DAY) and DATE_ADD(CURDATE(), INTERVAL 4 DAY) — the 3-day ones (milk, potatoes batch, chicken) should appear."
+          },
+          "response": []
+        },
+        {
+          "name": "Q3 — Total Quantity Across All Branches",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/3",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "3"]
+            },
+            "description": "SUM(quantity) GROUP BY food item across all branches. Excludes zero-stock rows."
+          },
+          "response": []
+        },
+        {
+          "name": "Q4 — Food Items Grouped by Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/4",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "4"]
+            },
+            "description": "All food items joined to their category, ordered by category name then food name."
+          },
+          "response": []
+        },
+        {
+          "name": "Q5 — Top Distributing Branch Last Month",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "5"]
+            },
+            "description": "CTE: sums distribution_items.quantity per branch for last calendar month. Returns LIMIT 1."
+          },
+          "response": []
+        },
+        {
+          "name": "Q6 — Volunteers Assigned to Branch",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/6?branchId=2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "6"],
+              "query": [{ "key": "branchId", "value": "2" }]
+            },
+            "description": "Active volunteers (users.status=1, role=1) at branch_id=2 (South End). Carol Lee should appear."
+          },
+          "response": []
+        },
+        {
+          "name": "Q7 — Volunteer Hours Last 30 Days (View)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/7",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "7"]
+            },
+            "description": "Reads directly from vw_volunteer_hours_log_last_30_days. Returns shifts from the last 30 days with formatted total_hours (e.g. 3h 0m)."
+          },
+          "response": []
+        },
+        {
+          "name": "Q8 — Volunteers at Branch in Time Window",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/8?branchId=1&date=2026-04-05&startTime=08:00:00&endTime=13:00:00",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "8"],
+              "query": [
+                { "key": "branchId", "value": "1" },
+                { "key": "date", "value": "2026-04-05" },
+                { "key": "startTime", "value": "08:00:00" },
+                { "key": "endTime", "value": "13:00:00" }
+              ]
+            },
+            "description": "Volunteers at branch 1 whose shifts overlap the window 08:00–13:00 on 2026-04-05.\nOverlap condition: shift_time_start < endTime AND shift_time_end > startTime.\n\nShift 1 (Carol Lee, 09:00–12:00) should match. Shift 10 (Carol Lee, 12:00–15:00) ends after 13:00 but starts at 12:00 < 13:00 so also matches."
+          },
+          "response": []
+        },
+        {
+          "name": "Q9 — Distribution History for Beneficiary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/9?beneficiaryId=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "9"],
+              "query": [{ "key": "beneficiaryId", "value": "1" }]
+            },
+            "description": "All distributions for beneficiary_id=1 (Linda Park), with line-item details (food name, quantity, unit). Walks distributions → distribution_items → inventories → food_items."
+          },
+          "response": []
+        },
+        {
+          "name": "Q10 — Beneficiaries Served per Branch This Week",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "10"]
+            },
+            "description": "COUNT(DISTINCT beneficiary_id) per branch for the current week (Sunday start via DAYOFWEEK)."
+          },
+          "response": []
+        },
+        {
+          "name": "Q11 — All Donations from a Donor",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/11?donorId=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "11"],
+              "query": [{ "key": "donorId", "value": "1" }]
+            },
+            "description": "All donations from donor_id=1 (John Carter) with line-item detail. Seed: donations 1 and 9."
+          },
+          "response": []
+        },
+        {
+          "name": "Q12 — Net Surplus per Branch",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/12",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "12"]
+            },
+            "description": "Two CTEs (received, distributed) joined to food_bank_branches. Returns total_received, total_distributed, net_surplus per branch. Positive surplus = more donated than distributed."
+          },
+          "response": []
+        },
+        {
+          "name": "Q13 — Items Below Quantity Threshold",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/13?threshold=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "13"],
+              "query": [{ "key": "threshold", "value": "10" }]
+            },
+            "description": "Runtime threshold — no hardcoded table. Returns inventory rows where quantity < threshold. Change threshold to 0 to see only out-of-stock, or 200 to see everything below 200 units."
+          },
+          "response": []
+        },
+        {
+          "name": "Q14 — All Users and Their Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/14",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "14"]
+            },
+            "description": "All users with human-readable role_name (Staff / Volunteer) and their branch. Note: password_hash is excluded from JSON via @JsonProperty(WRITE_ONLY)."
+          },
+          "response": []
+        },
+        {
+          "name": "Q15 — Most Frequently Donated/Distributed Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/15",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "15"]
+            },
+            "description": "Returns total_donated, total_distributed, total_activity per food category. Ordered by total_activity DESC."
+          },
+          "response": []
+        },
+        {
+          "name": "Q16 — Daily Distribution Totals (Last 14 Days)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/16",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "16"]
+            },
+            "description": "Groups by CAST(distribution_date AS DATE) for the last 14 days. Returns distribution_day, total_quantity, num_distributions."
+          },
+          "response": []
+        },
+        {
+          "name": "Q17 — Volunteer-to-Distribution Ratio per Branch",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/17",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "17"]
+            },
+            "description": "volunteer_count / distribution_count per branch. NULLIF prevents divide-by-zero. Branches with zero distributions get NULL ratio."
+          },
+          "response": []
+        },
+        {
+          "name": "Reports — Volunteer Access (expect 403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{volunteer_token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reports/14",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "14"]
+            },
+            "description": "Uses {{volunteer_token}} against a reports endpoint. Expected: 403 Forbidden. Verifies that the STAFF-only gate (SecurityConfig + @PreAuthorize) is working."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

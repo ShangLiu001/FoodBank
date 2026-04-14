@@ -1,5 +1,6 @@
 package com.primaryfeed.controller;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -10,6 +11,7 @@ import java.util.Map;
 /**
  * Translates DataIntegrityViolationException (including DB trigger violations from
  * SQLSTATE '45000') into a clean 400 JSON response so the frontend receives a readable message.
+ * DataAccessException (column errors, connection errors, etc.) → 500.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -20,6 +22,13 @@ public class GlobalExceptionHandler {
         String msg = ex.getMostSpecificCause().getMessage();
         if (msg == null || msg.isBlank()) msg = ex.getMessage();
         return ResponseEntity.badRequest().body(Map.of("error", msg));
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<Map<String, String>> handleDataAccess(DataAccessException ex) {
+        String msg = ex.getMostSpecificCause().getMessage();
+        if (msg == null || msg.isBlank()) msg = ex.getMessage();
+        return ResponseEntity.status(500).body(Map.of("error", msg));
     }
 
     @ExceptionHandler(RuntimeException.class)
