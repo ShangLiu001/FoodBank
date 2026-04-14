@@ -26,9 +26,9 @@ public class Distribution {
     private Beneficiary beneficiary;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "staff_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private Staff staff;
+    private User user;
 
     @Column(name = "distribution_date", nullable = false)
     private LocalDateTime distributionDate;

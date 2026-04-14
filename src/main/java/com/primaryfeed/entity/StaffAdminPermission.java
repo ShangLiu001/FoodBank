@@ -1,26 +1,11 @@
 package com.primaryfeed.entity;
 
-import jakarta.persistence.*;
-import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
-@Data
-@Entity
-@Table(name = "staff_admin_permissions")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+/**
+ * Superseded by UserAdminPermission.
+ * The SQL schema uses user_admin_permissions (FK to users.user_id),
+ * not staff_admin_permissions. This class is intentionally NOT annotated
+ * with @Entity so JPA does not try to map it.
+ */
 public class StaffAdminPermission {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "staff_permission_id")
-    private Integer staffPermissionId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "staff_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private Staff staff;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "permission_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private AdminPermission permission;
+    // Replaced by UserAdminPermission — do not use.
 }

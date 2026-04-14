@@ -8,5 +8,5 @@ import java.util.List;
 public interface DistributionRepository extends JpaRepository<Distribution, Integer> {
     List<Distribution> findByBranch_BranchId(Integer branchId);
     List<Distribution> findByBeneficiary_BeneficiaryId(Integer beneficiaryId);
-    List<Distribution> findByStaff_StaffId(Integer staffId);
+    List<Distribution> findByUser_UserId(Integer userId);
 }

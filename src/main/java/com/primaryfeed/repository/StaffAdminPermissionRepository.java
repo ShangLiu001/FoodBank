@@ -1,10 +1,10 @@
 package com.primaryfeed.repository;
-import com.primaryfeed.entity.StaffAdminPermission;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-import java.util.List;
 
-@Repository
-public interface StaffAdminPermissionRepository extends JpaRepository<StaffAdminPermission, Integer> {
-    List<StaffAdminPermission> findByStaff_StaffId(Integer staffId);
+/**
+ * Superseded by UserAdminPermissionRepository.
+ * StaffAdminPermission no longer has @Entity — this interface is intentionally
+ * NOT annotated with @Repository so Spring does not register it.
+ */
+public interface StaffAdminPermissionRepository {
+    // Replaced by UserAdminPermissionRepository — do not use.
 }

@@ -26,9 +26,9 @@ public class Donation {
     private Donor donor;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "staff_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private Staff staff;
+    private User user;
 
     @Column(name = "donation_date", nullable = false)
     private LocalDateTime donationDate;
