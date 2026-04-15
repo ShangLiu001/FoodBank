@@ -1653,5 +1653,385 @@
         }
       ]
     }
+  ,
+  {
+    "name": "Users",
+    "description": "Staff-only. All endpoints require {{staff_token}}. POST creates the users row plus the matching staff or volunteers subtype row in one call.",
+    "item": [
+      {
+        "name": "Get All Users",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/users",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users"]
+          },
+          "description": "Returns all users regardless of role. Staff-only."
+        },
+        "response": []
+      },
+      {
+        "name": "Get User by ID",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const u = pm.response.json();",
+                "pm.test('userId present', () => pm.expect(u.userId).to.be.a('number'));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/users/1",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users", "1"]
+          },
+          "description": "user_id=1 → Alice Nguyen (staff, branch 1) from seed data."
+        },
+        "response": []
+      },
+      {
+        "name": "Get Users by Role (Volunteers)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const arr = pm.response.json();",
+                "pm.test('All returned users are volunteers (role=1)', () => {",
+                "    arr.forEach(u => pm.expect(u.role).to.eql(1));",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/users/role/1",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users", "role", "1"]
+          },
+          "description": "role=0 for staff, role=1 for volunteers."
+        },
+        "response": []
+      },
+      {
+        "name": "Get Users by Branch",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/users/branch/1",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users", "branch", "1"]
+          },
+          "description": "All users assigned to branch_id=1 (Downtown Boston)."
+        },
+        "response": []
+      },
+      {
+        "name": "Create Staff User",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                "const u = pm.response.json();",
+                "pm.test('userId assigned', () => pm.expect(u.userId).to.be.a('number'));",
+                "pm.test('Role is staff (0)', () => pm.expect(u.role).to.eql(0));",
+                "if (pm.response.code === 201) {",
+                "    pm.environment.set('created_user_id', u.userId);",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Staff\",\n  \"email\": \"test.staff@bafb.org\",\n  \"phone\": \"617-555-0101\",\n  \"password\": \"Password123\",\n  \"role\": 0,\n  \"status\": 1,\n  \"branchId\": 1,\n  \"jobTitle\": \"Warehouse Lead\",\n  \"hireDate\": \"2024-03-01T00:00:00\"\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/users",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users"]
+          },
+          "description": "Creates a users row (role=0) and a staff subtype row. Returns the saved User. The test script saves {{created_user_id}} for the update/delete tests below."
+        },
+        "response": []
+      },
+      {
+        "name": "Create Staff User (duplicate email — expect 400)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 400 on duplicate email', () => pm.response.to.have.status(400));",
+                "pm.test('Error message present', () => pm.expect(pm.response.json().error).to.include('already'));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"firstName\": \"Alice\",\n  \"lastName\": \"Duplicate\",\n  \"email\": \"alice.nguyen@bafb.org\",\n  \"phone\": \"617-555-0000\",\n  \"password\": \"Password123\",\n  \"role\": 0,\n  \"status\": 1,\n  \"branchId\": 1,\n  \"jobTitle\": \"Tester\",\n  \"hireDate\": \"2024-01-01T00:00:00\"\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/users",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users"]
+          },
+          "description": "alice.nguyen@bafb.org is already in the seed data. Expected: 400 {\"error\": \"Email already registered\"}."
+        },
+        "response": []
+      },
+      {
+        "name": "Create Volunteer User",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                "const u = pm.response.json();",
+                "pm.test('Role is volunteer (1)', () => pm.expect(u.role).to.eql(1));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Volunteer\",\n  \"email\": \"test.volunteer@bafb.org\",\n  \"phone\": \"617-555-0202\",\n  \"password\": \"Password123\",\n  \"role\": 1,\n  \"status\": 1,\n  \"branchId\": 2,\n  \"availability\": \"Weekends\",\n  \"backgroundCheck\": 1\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/users",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users"]
+          },
+          "description": "Creates a users row (role=1) and a volunteers subtype row."
+        },
+        "response": []
+      },
+      {
+        "name": "Update User",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Phone updated', () => pm.expect(pm.response.json().phone).to.eql('617-555-9999'));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "PUT",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"phone\": \"617-555-9999\",\n  \"status\": 1\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/users/{{created_user_id}}",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users", "{{created_user_id}}"]
+          },
+          "description": "Updates phone and status for the user created by 'Create Staff User'. Uses {{created_user_id}} saved by that test's post-response script. Role cannot be changed via this endpoint."
+        },
+        "response": []
+      },
+      {
+        "name": "Update User Password",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('passwordHash not exposed', () => pm.expect(pm.response.json()).to.not.have.property('passwordHash'));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "PUT",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"password\": \"NewPassword456\"\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/users/{{created_user_id}}",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users", "{{created_user_id}}"]
+          },
+          "description": "Re-hashes and persists a new password for the user. The passwordHash field is write-only and must not appear in the response."
+        },
+        "response": []
+      },
+      {
+        "name": "Delete User",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 204', () => pm.response.to.have.status(204));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "DELETE",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/users/{{created_user_id}}",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users", "{{created_user_id}}"]
+          },
+          "description": "Deletes the user created by 'Create Staff User'. Run after the update tests."
+        },
+        "response": []
+      },
+      {
+        "name": "Get Deleted User (expect 404)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 404 after delete', () => pm.response.to.have.status(404));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/users/{{created_user_id}}",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users", "{{created_user_id}}"]
+          },
+          "description": "Confirms the user no longer exists after deletion."
+        },
+        "response": []
+      },
+      {
+        "name": "Get Users — Volunteer Access (expect 403)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 403 for volunteer on users endpoint', () => pm.response.to.have.status(403));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{volunteer_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/users",
+            "host": ["{{base_url}}"],
+            "path": ["api", "users"]
+          },
+          "description": "Volunteers must not access /api/users. Expected: 403 Forbidden."
+        },
+        "response": []
+      }
+    ]
+  }
   ]
 }
