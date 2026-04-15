@@ -2033,5 +2033,363 @@
       }
     ]
   }
+  ,
+  {
+    "name": "Inventory Impact Chain",
+    "description": "End-to-end verification that donation → inventory → distribution works correctly.\n\nTest subject: SKU-004 (White Rice 5lb, Grains) at branch_id=2 (South End).\nExpiry used: 2099-12-31 — a deliberately far-future date so a guaranteed-fresh inventory row is created (no collision with seed data).\n\nExpected state transitions:\n  [no row] → +100 bags (donation) → 60 bags (−40 distribution) → 400 on −61 (insufficient)\n\nRun IN ORDER — each request depends on the environment variables saved by the previous test script:\n  {{inv_test_donation_id}}, {{inv_test_inv_id}}, {{inv_test_dist_id}}",
+    "item": [
+      {
+        "name": "1. Snapshot: Branch 2 Inventory Before Donation",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const rows = pm.response.json();",
+                "const existing = rows.filter(r => r.foodItem && r.foodItem.sku === 'SKU-004' && r.expiryDate && r.expiryDate.startsWith('2099'));",
+                "pm.test('No SKU-004/2099 row exists yet at branch 2 (clean slate)', () => {",
+                "    pm.expect(existing.length, 'Run on a fresh DB or after cleanup').to.eql(0);",
+                "});",
+                "pm.environment.set('inv_snapshot_count', rows.length);"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/inventory/branch/2",
+            "host": ["{{base_url}}"],
+            "path": ["api", "inventory", "branch", "2"]
+          },
+          "description": "Captures the pre-donation state of branch 2 inventory. Verifies no SKU-004 row with expiry 2099-12-31 exists yet (would fail on re-run without DB cleanup)."
+        },
+        "response": []
+      },
+      {
+        "name": "2. Create Donation Header (SKU-004 @ Branch 2)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const d = pm.response.json();",
+                "pm.test('donationId assigned', () => pm.expect(d.donationId).to.be.a('number'));",
+                "pm.environment.set('inv_test_donation_id', d.donationId);",
+                "console.log('donation_id =', d.donationId);"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"branch\":  { \"branchId\":  2 },\n  \"donor\":   { \"donorId\":   2 },\n  \"user\":    { \"userId\":    1 },\n  \"donationDate\": \"2026-04-14T10:00:00\"\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/donations",
+            "host": ["{{base_url}}"],
+            "path": ["api", "donations"]
+          },
+          "description": "Creates the donation header row.\nbranch_id=2 (South End), donor_id=2 (Whole Foods Market), user_id=1 (Alice Nguyen).\n\nNO inventory change yet — the trigger lives on donation_items, not donations."
+        },
+        "response": []
+      },
+      {
+        "name": "3. Add Donation Item → Triggers Inventory Creation",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const item = pm.response.json();",
+                "pm.test('donation item saved', () => pm.expect(item.donationItemId).to.be.a('number'));",
+                "pm.test('quantity is 100', () => pm.expect(item.quantity).to.eql(100));",
+                "console.log('donation_item_id =', item.donationItemId,",
+                "            '| DB trigger trg_after_donation_items_insert fires NOW');"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"donation\":  { \"donationId\": {{inv_test_donation_id}} },\n  \"foodItem\":  { \"sku\": \"SKU-004\" },\n  \"quantity\":  100,\n  \"unit\":      \"bags\",\n  \"expiryDate\": \"2099-12-31T00:00:00\"\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/donation-items",
+            "host": ["{{base_url}}"],
+            "path": ["api", "donation-items"]
+          },
+          "description": "Inserts a donation_items row. This fires:\n  trg_after_donation_items_insert\n\nTrigger logic:\n  1. JOIN donation → get branch_id=2\n  2. Look for inventories WHERE food_sku='SKU-004' AND branch_id=2 AND unit='bags' AND expiry_date='2099-12-31'\n  3. No match found → INSERT INTO inventories (SKU-004, branch_id=2, qty=100, 'bags', 2099-12-31)\n  4. Logs to trigger_logs: 'Created new inventory batch for SKU: SKU-004'\n\nResult: a brand-new inventory row is created with quantity=100."
+        },
+        "response": []
+      },
+      {
+        "name": "4. Verify Inventory Created (+100 bags) → Save inventory_id",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const rows = pm.response.json();",
+                "const batch = rows.find(r =>",
+                "    r.foodItem && r.foodItem.sku === 'SKU-004' &&",
+                "    r.expiryDate && r.expiryDate.startsWith('2099'));",
+                "pm.test('SKU-004 inventory batch exists at branch 2', () => pm.expect(batch).to.not.be.undefined);",
+                "pm.test('Quantity is exactly 100 (trigger incremented from 0)', () => pm.expect(batch.quantity).to.eql(100));",
+                "pm.test('Unit is bags', () => pm.expect(batch.unit).to.eql('bags'));",
+                "if (batch) {",
+                "    pm.environment.set('inv_test_inv_id', batch.inventoryId);",
+                "    console.log('inventory_id =', batch.inventoryId);",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/inventory/branch/2",
+            "host": ["{{base_url}}"],
+            "path": ["api", "inventory", "branch", "2"]
+          },
+          "description": "Re-fetches branch 2 inventory to confirm the trigger created the new row.\nFinds the SKU-004 batch expiring 2099-12-31, asserts qty=100, and saves {{inv_test_inv_id}}."
+        },
+        "response": []
+      },
+      {
+        "name": "5. Confirm Specific Inventory Batch (qty=100)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const inv = pm.response.json();",
+                "pm.test('Correct SKU', () => pm.expect(inv.foodItem.sku).to.eql('SKU-004'));",
+                "pm.test('Correct branch', () => pm.expect(inv.branch.branchId).to.eql(2));",
+                "pm.test('Quantity = 100', () => pm.expect(inv.quantity).to.eql(100));",
+                "pm.test('Unit = bags', () => pm.expect(inv.unit).to.eql('bags'));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/inventory/{{inv_test_inv_id}}",
+            "host": ["{{base_url}}"],
+            "path": ["api", "inventory", "{{inv_test_inv_id}}"]
+          },
+          "description": "Direct fetch of the newly created inventory row by ID. Confirms SKU, branch, quantity, and unit before we distribute from it."
+        },
+        "response": []
+      },
+      {
+        "name": "6. Create Distribution Header (Branch 2 → Beneficiary 2)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const d = pm.response.json();",
+                "pm.test('distributionId assigned', () => pm.expect(d.distributionId).to.be.a('number'));",
+                "pm.environment.set('inv_test_dist_id', d.distributionId);",
+                "console.log('distribution_id =', d.distributionId);"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"branch\":       { \"branchId\":       2 },\n  \"beneficiary\":  { \"beneficiaryId\":  2 },\n  \"user\":         { \"userId\":         1 },\n  \"distributionDate\": \"2026-04-14T12:00:00\"\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/distributions",
+            "host": ["{{base_url}}"],
+            "path": ["api", "distributions"]
+          },
+          "description": "Creates the distribution header row.\nbranch_id=2, beneficiary_id=2 (Marcus Johnson, household_size=5), user_id=1 (Alice).\n\nNO inventory change yet — the trigger lives on distribution_items."
+        },
+        "response": []
+      },
+      {
+        "name": "7. Add Distribution Item (40 bags) → Triggers Inventory Decrement",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const item = pm.response.json();",
+                "pm.test('distributionItemId assigned', () => pm.expect(item.distributionItemId).to.be.a('number'));",
+                "pm.test('quantity is 40', () => pm.expect(item.quantity).to.eql(40));",
+                "console.log('distribution_item_id =', item.distributionItemId,",
+                "            '| DB trigger trg_after_distribution_items_insert fires NOW');"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"distribution\": { \"distributionId\": {{inv_test_dist_id}} },\n  \"inventory\":    { \"inventoryId\":    {{inv_test_inv_id}} },\n  \"quantity\":     40\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/distribution-items",
+            "host": ["{{base_url}}"],
+            "path": ["api", "distribution-items"]
+          },
+          "description": "Inserts a distribution_items row referencing inventory_id={{inv_test_inv_id}}. This fires:\n  trg_after_distribution_items_insert\n\nTrigger logic:\n  1. Check: inventories.quantity (100) >= requested (40)? YES → proceed\n  2. UPDATE inventories SET quantity = 100 - 40 = 60 WHERE inventory_id = {{inv_test_inv_id}}\n  3. Logs to trigger_logs: 'Decremented inventory_id: X by 40'\n\nResult: inventory row quantity drops from 100 → 60."
+        },
+        "response": []
+      },
+      {
+        "name": "8. Verify Inventory Decremented (100 − 40 = 60)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const inv = pm.response.json();",
+                "pm.test('Quantity is now 60 (100 donated − 40 distributed)', () => pm.expect(inv.quantity).to.eql(60));",
+                "pm.test('SKU still SKU-004', () => pm.expect(inv.foodItem.sku).to.eql('SKU-004'));",
+                "pm.test('Branch still 2', () => pm.expect(inv.branch.branchId).to.eql(2));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/inventory/{{inv_test_inv_id}}",
+            "host": ["{{base_url}}"],
+            "path": ["api", "inventory", "{{inv_test_inv_id}}"]
+          },
+          "description": "Confirms the trigger fired correctly. Expected quantity = 60."
+        },
+        "response": []
+      },
+      {
+        "name": "9. Distribute 61 bags — Expect 400 Insufficient Stock",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 400 (trigger raised SQLSTATE 45000)', () => pm.response.to.have.status(400));",
+                "const body = pm.response.json();",
+                "pm.test('Error message mentions insufficient stock', () => {",
+                "    pm.expect(body.error.toLowerCase()).to.include('insufficient');",
+                "});",
+                "console.log('Trigger error:', body.error);"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" },
+            { "key": "Content-Type", "value": "application/json", "type": "text" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"distribution\": { \"distributionId\": {{inv_test_dist_id}} },\n  \"inventory\":    { \"inventoryId\":    {{inv_test_inv_id}} },\n  \"quantity\":     61\n}",
+            "options": { "raw": { "language": "json" } }
+          },
+          "url": {
+            "raw": "{{base_url}}/api/distribution-items",
+            "host": ["{{base_url}}"],
+            "path": ["api", "distribution-items"]
+          },
+          "description": "Attempts to distribute 61 bags when only 60 remain.\n\nTrigger logic:\n  1. Check: inventories.quantity (60) >= requested (61)? NO\n  2. SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insufficient stock: quantity would go below 0.'\n\nSpring catches DataIntegrityViolationException → GlobalExceptionHandler returns 400 with the trigger message."
+        },
+        "response": []
+      },
+      {
+        "name": "10. Confirm Inventory Unchanged After Failed Distribution (still 60)",
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const inv = pm.response.json();",
+                "pm.test('Quantity still 60 — trigger rollback worked', () => pm.expect(inv.quantity).to.eql(60));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ],
+        "request": {
+          "method": "GET",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{staff_token}}", "type": "text" }
+          ],
+          "url": {
+            "raw": "{{base_url}}/api/inventory/{{inv_test_inv_id}}",
+            "host": ["{{base_url}}"],
+            "path": ["api", "inventory", "{{inv_test_inv_id}}"]
+          },
+          "description": "Confirms the failed distribution (step 9) did not corrupt inventory. Quantity must still be 60."
+        },
+        "response": []
+      }
+    ]
+  }
   ]
 }

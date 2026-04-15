@@ -69,10 +69,14 @@ public class ReportService {
                 JOIN food_categories fc ON fi.category_id = fc.category_id
                 JOIN food_bank_branches fbb ON i.branch_id = fbb.branch_id
                 WHERE i.quantity > 0
-                  AND i.expiry_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 DAY)
+                  AND i.expiry_date >= :start
+                  AND i.expiry_date <= :cutoff
                 ORDER BY i.expiry_date
                 """;
-        return run(sql, Map.of());
+        return run(sql, Map.of(
+            "start",  LocalDate.now().atStartOfDay(),
+            "cutoff", LocalDate.now().plusDays(3).atTime(LocalTime.MAX)
+        ));
     }
 
     // ── Query 3: Total food quantity available across all branches ─────────────
