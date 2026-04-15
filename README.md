@@ -13,13 +13,14 @@ PrimaryFeed is a food bank management system built around a centralized MySQL re
 3. [Authentication](#authentication)
 4. [Roles: User, Staff, Volunteer](#roles-user-staff-volunteer)
 5. [People Who Don't Log In: Donors & Beneficiaries](#people-who-dont-log-in-donors--beneficiaries)
-6. [Core Logic: Donation → Inventory → Distribution](#core-logic-donation--inventory--distribution)
-7. [Inventory Explained](#inventory-explained)
-8. [Database Triggers](#database-triggers)
-9. [API Reference](#api-reference)
-10. [Request Body Reference](#request-body-reference)
-11. [Reports (Insight Queries)](#reports-insight-queries)
-12. [Error Responses](#error-responses)
+6. [Entity Relationship Map](#entity-relationship-map)
+7. [Core Logic: Donation → Inventory → Distribution](#core-logic-donation--inventory--distribution)
+8. [Inventory Explained](#inventory-explained)
+9. [Database Triggers](#database-triggers)
+10. [API Reference](#api-reference)
+11. [Request Body Reference](#request-body-reference)
+12. [Reports (Insight Queries)](#reports-insight-queries)
+13. [Error Responses](#error-responses)
 
 ---
 
@@ -181,7 +182,405 @@ Beneficiaries are connected to the system through **distributions** — every di
 
 ---
 
-## Core Logic: Donation → Inventory → Distribution
+## Entity Relationship Map
+
+### Complete system map — everything and how it connects
+
+```
+┌─────────────┐        ┌──────────────────────────────────────────────────────┐
+│  addresses  │        │                        users                         │
+│─────────────│        │──────────────────────────────────────────────────────│
+│ address_id  │◄───────│ user_id  (PK)                                        │
+│ address_    │        │ first_name, last_name                                │
+│   line_1/2  │        │ email  (unique)                                      │
+│ city, state │        │ phone                                                │
+│ zip_code    │        │ password_hash  (write-only)                          │
+└─────────────┘        │ role     0=Staff  1=Volunteer                        │
+       ▲               │ status   0=Inactive  1=Active                        │
+       │               │ branch_id  (FK → food_bank_branches)                 │
+       │               │ address_id (FK → addresses, optional)                │
+       │               └──────────────────────┬───────────────────────────────┘
+       │                                      │ 1
+       │                          ┌───────────┴───────────┐
+       │                          │ 1                     │ 1
+       │                    ┌─────▼──────┐         ┌──────▼──────┐
+       │                    │   staff    │         │  volunteers │
+       │                    │────────────│         │─────────────│
+       │                    │ staff_id   │         │ volunteer_id│
+       │                    │ user_id(FK)│         │ user_id (FK)│
+       │                    │ job_title  │         │ availability│
+       │                    │ hire_date  │         │ background_ │
+       │                    └────────────┘         │   check     │
+       │                                           └──────┬──────┘
+       │                                                  │ 1
+       │                                                  │
+       │                                         ┌────────▼────────┐
+       │                                         │ volunteer_shifts│
+       │                                         │─────────────────│
+       │                                         │ shift_id        │
+       │                                         │ volunteer_id(FK)│
+       │                                         │ branch_id   (FK)│
+       │                                         │ shift_date      │
+       │                                         │ time_start/end  │
+       │                                         └─────────────────┘
+       │
+       │    ┌──────────────┐        ┌───────────────────────────────┐
+       └────│   donors     │        │       food_bank_branches      │
+            │──────────────│        │───────────────────────────────│
+            │ donor_id     │        │ branch_id  (PK)               │
+            │ donor_name   │        │ branch_num                    │
+            │ donor_type   │        │ branch_name                   │
+            │   0=Individual│       │ food_bank_id (FK → food_banks)│
+            │   1=Org      │        │ address_id  (FK, optional)    │
+            │ email, phone │        └───────────────────────────────┘
+            │ address_id   │
+            └──────┬───────┘
+                   │ 1                         ┌──────────────────┐
+                   │                           │  food_categories │
+            ┌──────▼──────────────────┐        │──────────────────│
+            │        donations        │        │ category_id (PK) │
+            │─────────────────────────│        │ category_name    │
+            │ donation_id    (PK)     │        │   (READ-ONLY —   │
+            │ branch_id      (FK)     │        │    drives expiry  │
+            │ donor_id       (FK)     │        │    tier logic)   │
+            │ user_id        (FK)     │        └────────┬─────────┘
+            │ donation_date           │                 │ 1
+            └──────────┬──────────────┘                 │
+                       │ 1                       ┌───────▼────────┐
+                       │                         │   food_items   │
+                ┌──────▼──────────────┐          │────────────────│
+                │    donation_items   │          │ sku  (PK, text)│
+                │─────────────────────│          │ food_name      │
+                │ donation_item_id    │          │ food_desc      │
+                │ donation_id    (FK) │          │ storage_cond.  │
+                │ food_sku       (FK)─┼──────────► category_id(FK)│
+                │ quantity            │          └───────┬────────┘
+                │ unit                │                  │ 1
+                │ expiry_date         │                  │
+                │ UNIQUE(donation_id, │         ┌────────▼────────────────┐
+                │   food_sku,         │         │       inventories       │
+                │   expiry_date)      │         │─────────────────────────│
+                └──────────┬──────────┘         │ inventory_id  (PK)      │
+                           │                    │ food_sku      (FK)      │
+                    TRIGGER │                    │ branch_id     (FK)      │
+              ┌────────────▼─────────────────►  │ quantity   ◄── managed  │
+              │  trg_after_donation_items_insert │   by triggers only      │
+              │  • find batch (sku+branch+       │ unit                    │
+              │    unit+expiry)                  │ expiry_date             │
+              │  • EXISTS → UPDATE qty += N      └────────────┬────────────┘
+              │  • NOT EXISTS → INSERT new row                │ 1
+              └──────────────────────────────────             │
+                                                    ┌─────────▼──────────────┐
+                                                    │   distribution_items   │
+                                                    │────────────────────────│
+                                                    │ distribution_item_id   │
+                                                    │ distribution_id   (FK) │
+                                                    │ inventory_id      (FK) │◄──┐
+                                                    │ quantity               │   │
+                                                    │ UNIQUE(distribution_id,│   │ TRIGGER
+                                                    │        inventory_id)   │   │ trg_after_
+                                                    └───────────┬────────────┘   │ distribution_
+                                                                │                │ items_insert
+                                                         TRIGGER│                │ • qty >= N?
+                                                    ┌───────────▼────────┐       │ • UPDATE
+                                                    │    distributions   │       │   qty -= N
+                                                    │────────────────────│       │ • else 400
+                                                    │ distribution_id(PK)│       │
+                                                    │ branch_id     (FK) │       │
+                                                    │ beneficiary_id(FK) │       │
+                                                    │ user_id       (FK) │       │
+                                                    │ distribution_date  │       │
+                                                    └───────────┬────────┘       │
+                                                                │ 1              │
+                                                    ┌───────────▼────────┐       │
+                                                    │   beneficiaries    │       │
+                                                    │────────────────────│       │
+                                                    │ beneficiary_id (PK)│       │
+                                                    │ beneficiary_       │       │
+                                                    │   full_name        │       │
+                                                    │ household_size     │       │
+                                                    │ phone, email       │       │
+                                                    │ eligibility_status │       │
+                                                    │   0=Ineligible     │       │
+                                                    │   1=Eligible       │       │
+                                                    │ address_id    (FK) │       │
+                                                    └────────────────────┘       │
+                                                                                 │
+                                                    (inventory_id FK ────────────┘
+                                                     links distribution_items
+                                                     directly to a specific batch,
+                                                     not just a SKU)
+```
+
+---
+
+### Who can log in vs. who is just a record
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          SYSTEM PARTICIPANTS                                │
+├──────────────────────────────┬──────────────────────────────────────────────┤
+│   CAN LOG IN (have accounts) │   CANNOT LOG IN (records only)               │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│                              │                                              │
+│  users                       │  donors                                      │
+│   └── staff    (role = 0)    │   └── give food  → tracked via donations     │
+│   └── volunteers(role = 1)   │                                              │
+│                              │  beneficiaries                               │
+│  Staff: full access          │   └── receive food → tracked via distributions│
+│  Volunteer: no reports       │                                              │
+│                              │  Staff manage donor/beneficiary records      │
+│                              │  on their behalf (no self-service portal)    │
+└──────────────────────────────┴──────────────────────────────────────────────┘
+```
+
+---
+
+### User → Staff / Volunteer subtype detail
+
+```
+                          POST /api/users
+                               │
+                               ▼
+              ┌────────────────────────────────┐
+              │  1. INSERT INTO users           │
+              │     (identity + credentials)   │
+              │     role = 0 or 1              │
+              └───────────────┬────────────────┘
+                              │
+              ┌───────────────▼────────────────┐
+              │  2. Check role value            │
+              └──────┬─────────────────┬────────┘
+                     │ role = 0        │ role = 1
+                     ▼                 ▼
+        ┌────────────────┐   ┌──────────────────────┐
+        │INSERT INTO     │   │INSERT INTO volunteers │
+        │staff           │   │                      │
+        │────────────────│   │──────────────────────│
+        │ user_id (FK)   │   │ user_id  (FK)        │
+        │ job_title      │   │ availability         │
+        │ hire_date      │   │ background_check     │
+        └────────────────┘   └──────────────────────┘
+              │                        │
+              └───────────┬────────────┘
+                          ▼
+              DB trigger validates role:
+              trg_staff_check_role      → blocks if role != 0
+              trg_volunteers_check_role → blocks if role != 1
+              trg_users_prevent_role_change → blocks role edits
+```
+
+**One API call creates two rows.** The `POST /api/users` endpoint handles both inserts. The DB triggers enforce subtype integrity — you cannot insert a `staff` row for a volunteer-role user, and vice versa.
+
+---
+
+### Food catalog chain
+
+```
+food_categories  (READ-ONLY — names drive expiry tier logic)
+      │
+      │  category_id FK
+      ▼
+food_items  ──  PK is sku VARCHAR(45), NOT an integer
+      │         e.g. "SKU-001", "SKU-011"
+      │
+      │  food_sku FK
+      ▼
+inventories  ──  one row per (SKU + branch + expiry_date) batch
+      │          quantity is managed exclusively by triggers
+      │          the same SKU can appear at multiple branches
+      │          the same SKU can appear multiple times at ONE branch
+      │          with different expiry_dates (different deliveries)
+      │
+      │  inventory_id FK
+      ▼
+distribution_items  ──  references the specific batch, not just the SKU
+                        enables FIFO: distribute oldest-expiry batch first
+```
+
+**Why `distribution_items` links to `inventory_id` not `food_sku`:**
+When you distribute food, you're taking from a specific physical batch — the one expiring soonest. Linking directly to `inventory_id` makes the decrement precise and auditable.
+
+**Why `donation_items` links to `food_sku` not `inventory_id`:**
+When food arrives, no inventory batch may exist yet. The trigger creates (or merges into) the right batch automatically based on `(sku, branch, unit, expiry_date)`.
+
+---
+
+### Donation flow — step by step
+
+```
+ Staff/Volunteer                  API                      Database
+ ───────────────                ───────                  ──────────
+
+ 1. Donor arrives         POST /api/donations         INSERT donations
+    with food             {branch, donor, user,    →  (gets donation_id)
+                           donationDate}
+
+ 2. Log each food item    POST /api/donation-items    INSERT donation_items
+    in the delivery       {donationId, sku,         →      │
+                           quantity, unit,                  │
+                           expiryDate}                      │ TRIGGER fires
+                                                            ▼
+                                              trg_after_donation_items_insert
+                                              ┌────────────────────────────┐
+                                              │ JOIN donations → branch_id │
+                                              │                            │
+                                              │ Batch exists?              │
+                                              │ (sku + branch + unit +     │
+                                              │  expiry match)             │
+                                              │                            │
+                                              │  YES → UPDATE inventories  │
+                                              │        qty = qty + N       │
+                                              │                            │
+                                              │  NO  → INSERT inventories  │
+                                              │        new row, qty = N    │
+                                              └────────────────────────────┘
+
+ 3. Repeat step 2         POST /api/donation-items    Each item triggers
+    for each SKU          (same donationId,           independently.
+    in the delivery        different sku/expiry)      Same SKU+expiry
+                                                      merges into one batch.
+                                                      Different expiry →
+                                                      separate batch row.
+```
+
+---
+
+### Distribution flow — step by step
+
+```
+ Staff/Volunteer                  API                      Database
+ ───────────────                ───────                  ──────────
+
+ 1. Beneficiary comes     POST /api/distributions     INSERT distributions
+    to pick up food       {branch, beneficiary,    →  (gets distribution_id)
+                           user, distributionDate}
+
+ 2. First check what      GET /api/inventory          Returns all inventory
+    is available          /branch/{branchId}          rows at the branch
+    at the branch         or                          with quantity > 0.
+                          GET /api/reports/1          Pick the inventory_id
+                          ?branchId=X                 of the batch to use.
+
+ 3. Distribute each       POST /api/distribution-     INSERT distribution_items
+    food item             items                    →       │
+                          {distributionId,                 │ TRIGGER fires
+                           inventoryId,                    ▼
+                           quantity}          trg_after_distribution_items_insert
+                                              ┌────────────────────────────────┐
+                                              │ qty_available =                │
+                                              │   SELECT quantity FROM         │
+                                              │   inventories                  │
+                                              │   WHERE inventory_id = X       │
+                                              │                                │
+                                              │ qty_available >= requested?    │
+                                              │                                │
+                                              │  NO  → SIGNAL '45000'          │
+                                              │        "Insufficient stock"    │
+                                              │        → API returns 400       │
+                                              │                                │
+                                              │  YES → UPDATE inventories      │
+                                              │        qty = qty - requested   │
+                                              └────────────────────────────────┘
+
+ 4. Repeat step 3         POST /api/distribution-    Each item triggers
+    for each food         items (same               independently.
+    item given out        distributionId,           UNIQUE(dist_id, inv_id):
+                          different inventoryId)    cannot reference the same
+                                                    batch twice in one event.
+```
+
+---
+
+### The critical asymmetry between donation items and distribution items
+
+```
+┌──────────────────────────────┬──────────────────────────────────────────────┐
+│      donation_items          │           distribution_items                 │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│ References food_sku          │ References inventory_id                      │
+│ (the catalog item)           │ (a specific physical batch)                  │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│ Trigger FINDS or CREATES     │ Trigger DECREMENTS a row you specified       │
+│ the right inventory batch    │ — no lookup needed                           │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│ Branch comes from JOIN on    │ Branch is implicit in inventory_id           │
+│ the parent donation header   │ (already knows where the stock is)           │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│ Unique: (donation_id,        │ Unique: (distribution_id, inventory_id)      │
+│          food_sku,           │ One batch per distribution event             │
+│          expiry_date)        │                                              │
+│ Same SKU allowed twice if    │ Same inventory batch cannot appear twice     │
+│ expiry dates differ          │ in the same distribution                     │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│ WHY: Food arrives without    │ WHY: Distributing is precise — you pick      │
+│ a pre-existing batch.        │ which batch to pull from (FIFO). The         │
+│ Trigger handles merge vs.    │ record is an exact audit trail of which      │
+│ create automatically.        │ physical stock was given out.                │
+└──────────────────────────────┴──────────────────────────────────────────────┘
+```
+
+---
+
+### Full dependency map — the whole system at a glance
+
+```
+addresses ◄──────────────────────────── users ──────────────┬── staff
+                                          │                  └── volunteers ── volunteer_shifts
+                                          │                          │
+                         ┌────────────────┘                         │
+                         │  user_id FK (who logged the event)       │ volunteer_id FK
+                         │                                          │
+                ┌────────▼─────────┐                       food_bank_branches
+                │                  │                                │
+          ┌─────▼─────┐     ┌──────▼──────┐ branch_id FK           │
+          │ donations │     │distributions│◄───────────────────────┘
+          └─────┬─────┘     └──────┬──────┘
+                │                  │
+         1:N    │           1:N    │
+                │                  │
+    ┌───────────▼──────┐  ┌────────▼──────────┐
+    │  donation_items  │  │ distribution_items │
+    │  food_sku (FK)   │  │ inventory_id (FK)  │
+    └────────┬─────────┘  └────────────────────┘
+             │ TRIGGER                │ TRIGGER
+             │ creates/increments     │ decrements
+             └──────────►  inventories ◄──────────┘
+                              │
+                        food_sku (FK)
+                              │
+                         food_items
+                              │
+                        category_id (FK)
+                              │
+                       food_categories
+```
+
+---
+
+### One-table CRUD vs. two-table create — summary for FE
+
+```
+┌────────────────────────────┬────────────────────────────────────────────────┐
+│  Entity                    │  Create pattern                                │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│  Donor                     │  POST /api/donors  (one call)                  │
+│  Beneficiary               │  POST /api/beneficiaries  (one call)           │
+│  Food item                 │  POST /api/inventory/food-items  (one call)    │
+│  Volunteer shift           │  POST /api/shifts  (one call, trigger checks)  │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│  User (staff or volunteer) │  POST /api/users  (one call → two DB rows)     │
+│                            │  API creates users row + staff/volunteer row   │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│  Donation                  │  POST /api/donations  ← header first           │
+│                            │  POST /api/donation-items  ← one per SKU       │
+│                            │  (trigger auto-updates inventory)              │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│  Distribution              │  POST /api/distributions  ← header first       │
+│                            │  POST /api/distribution-items  ← one per batch │
+│                            │  (trigger auto-decrements inventory)           │
+└────────────────────────────┴────────────────────────────────────────────────┘
+```
 
 This is the most important part of the system. The entire food lifecycle flows through three connected concepts.
 
