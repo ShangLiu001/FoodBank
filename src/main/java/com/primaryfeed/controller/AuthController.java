@@ -15,20 +15,64 @@ import com.primaryfeed.auth.JwtUtil;
 import com.primaryfeed.entity.User;
 import com.primaryfeed.service.UserService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "Login and user authentication endpoints")
 public class AuthController {
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
 
-    /** POST /api/auth/login — Body: { "email": "...", "password": "..." } */
+    @Operation(
+        summary = "User login",
+        description = "Authenticate with email and password. Returns JWT token and user info."
+    )
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "Login successful",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(value = """
+                    {
+                      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                      "role": "ROLE_STAFF",
+                      "userId": 1,
+                      "name": "Alice Nguyen"
+                    }
+                    """)
+            )
+        ),
+        @ApiResponse(responseCode = "401", description = "Invalid credentials"),
+        @ApiResponse(responseCode = "403", description = "Account inactive")
+    })
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> login(
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Login credentials",
+            required = true,
+            content = @Content(
+                examples = @ExampleObject(value = """
+                    {
+                      "email": "alice.nguyen@bafb.org",
+                      "password": "yourpassword"
+                    }
+                    """)
+            )
+        )
+        @RequestBody Map<String, String> body) {
         String email    = body.get("email");
         String password = body.get("password");
 
@@ -56,9 +100,24 @@ public class AuthController {
         ));
     }
 
-    /** GET /api/auth/me — Returns the authenticated user's profile. */
+    @Operation(
+        summary = "Get current user",
+        description = "Returns the authenticated user's profile information",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "User profile retrieved"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @GetMapping("/me")
-    public ResponseEntity<?> me(@RequestHeader("Authorization") String header) {
+    public ResponseEntity<?> me(
+        @RequestHeader(value = "Authorization", required = false)
+        @io.swagger.v3.oas.annotations.Parameter(hidden = true)
+        String header
+    ) {
+        if (header == null || !header.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).body(Map.of("error", "Missing or invalid Authorization header"));
+        }
         String token = header.substring(7);
         String email = jwtUtil.extractEmail(token);
         return userService.findByEmail(email)
