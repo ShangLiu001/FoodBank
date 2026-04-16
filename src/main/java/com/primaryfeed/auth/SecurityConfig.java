@@ -34,6 +34,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public
                         .requestMatchers("/", "/health", "/api/auth/**").permitAll()
+                        // Swagger/OpenAPI
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         // Staff only
                         .requestMatchers("/api/reports/**").hasRole("STAFF")
                         .requestMatchers("/api/users/**").hasRole("STAFF")
