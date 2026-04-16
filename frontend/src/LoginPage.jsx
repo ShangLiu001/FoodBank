@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+const API_BASE = 'http://34.10.48.147:8080';
+
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,8 +14,7 @@ const LoginPage = () => {
     setError('');
 
     try {
-      // Replace with your actual GCP/Spring Boot URL
-      const response = await fetch('https://your-backend-url.com/api/auth/login', {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -22,17 +23,19 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // 1. Store the JWT
         localStorage.setItem('token', data.token);
-        
-        // 2. Redirect based on role (0=Staff, 1=Volunteer from your DDL)
-        if (data.role === 0) {
-          window.location.href = '/admin-dashboard';
+        localStorage.setItem('role', data.role);
+        localStorage.setItem('userId', data.userId);
+        localStorage.setItem('name', data.name);
+
+        // Backend returns "ROLE_STAFF" or "ROLE_VOLUNTEER"
+        if (data.role === 'ROLE_STAFF') {
+          window.location.href = '/dashboard';
         } else {
-          window.location.href = '/volunteer-portal';
+          window.location.href = '/operations';
         }
       } else {
-        setError(data.message || 'Authentication failed.');
+        setError(data.error || 'Authentication failed.');
       }
     } catch (err) {
       setError('Connection error. Please check your GCP server.');

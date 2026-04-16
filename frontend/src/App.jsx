@@ -1,23 +1,13 @@
 import React from 'react';
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from 'react-router-dom';
-
-// 1. Import the Sidebar
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
-
-// 2. Import the Page components
 import LoginPage from './LoginPage';
 import Dashboard from './Dashboard';
 import OperationsPortal from './OperationsPortal';
 import CommunityManagement from './CommunityManagement';
-
+import Reports from './Reports';
 import './App.css';
 
-// A small helper component to keep the Sidebar on every page except Login
 const Layout = ({ children }) => (
   <div className="flex h-screen bg-gray-100">
     <Sidebar />
@@ -25,40 +15,36 @@ const Layout = ({ children }) => (
   </div>
 );
 
+const PrivateRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  return token ? children : <Navigate to="/login" replace />;
+};
+
+const StaffRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
+  if (!token) return <Navigate to="/login" replace />;
+  if (role !== 'ROLE_STAFF') return <Navigate to="/operations" replace />;
+  return children;
+};
+
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Route: No Sidebar here */}
         <Route path="/login" element={<LoginPage />} />
-
-        {/* Private Routes: Wrapped in the Layout to show the Sidebar */}
-        <Route
-          path="/dashboard"
-          element={
-            <Layout>
-              <Dashboard />
-            </Layout>
-          }
-        />
-        <Route
-          path="/operations"
-          element={
-            <Layout>
-              <OperationsPortal />
-            </Layout>
-          }
-        />
-        <Route
-          path="/community"
-          element={
-            <Layout>
-              <CommunityManagement />
-            </Layout>
-          }
-        />
-
-        {/* Default redirect */}
+        <Route path="/dashboard" element={
+          <StaffRoute><Layout><Dashboard /></Layout></StaffRoute>
+        } />
+        <Route path="/operations" element={
+          <PrivateRoute><Layout><OperationsPortal /></Layout></PrivateRoute>
+        } />
+        <Route path="/community" element={
+          <PrivateRoute><Layout><CommunityManagement /></Layout></PrivateRoute>
+        } />
+        <Route path="/reports" element={
+          <StaffRoute><Layout><Reports /></Layout></StaffRoute>
+        } />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
