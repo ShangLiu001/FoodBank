@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ensure the app takes up the full screen without margins */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* Optional: Smooth transitions for a more professional feel */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}

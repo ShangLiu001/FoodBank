@@ -1,0 +1,45 @@
+/* 1. Standard Tailwind Directives (if not already in index.css) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 2. Global Layout Fixes */
+/* This ensures your sidebar and main content areas always fill the screen */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* 3. Custom Utility for your Data Tables */
+/* This makes your SQL data tables look more professional and consistent */
+@layer components {
+  .table-container {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden;
+  }
+
+  .table-header {
+    @apply bg-gray-50 text-gray-600 uppercase text-xs font-bold px-6 py-4;
+  }
+
+  .table-row {
+    @apply hover:bg-gray-50 transition-colors border-b border-gray-100;
+  }
+}
+
+/* 4. Animation for Page Transitions */
+/* Adds a subtle fade-in when you navigate between Dashboard and Operations */
+.page-fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
