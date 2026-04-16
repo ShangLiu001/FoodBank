@@ -64,7 +64,8 @@ public class AuthorizationTest extends BaseIntegrationTest {
         );
 
         // Assert
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        // Spring Security returns 403 FORBIDDEN (not 401) when no auth token is provided
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 
     private void assertTrue(boolean condition, String message) {

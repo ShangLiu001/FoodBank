@@ -16,10 +16,10 @@ INSERT INTO staff (user_id, job_title, hire_date) VALUES
 (1001, 'Test Coordinator', NOW()),
 (1004, 'Former Manager', DATE_SUB(NOW(), INTERVAL 1 YEAR));
 
--- Add corresponding volunteer records
-INSERT INTO volunteers (user_id, availability, background_check) VALUES
-(1002, 'Weekends', 1),
-(1003, 'Weekdays', 1);
+-- Add corresponding volunteer records with explicit volunteer_ids
+INSERT INTO volunteers (volunteer_id, user_id, availability, background_check) VALUES
+(1000, 1002, 'Weekends', 1),
+(1001, 1003, 'Weekdays', 1);
 
 -- Add test-specific food items to avoid conflicts with seed data
 INSERT INTO food_items (sku, food_name, food_description, storage_condition, category_id) VALUES

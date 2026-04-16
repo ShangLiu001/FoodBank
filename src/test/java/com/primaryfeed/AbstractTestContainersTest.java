@@ -8,6 +8,9 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -15,7 +18,8 @@ import java.util.stream.Collectors;
 
 /**
  * Base class for integration tests using TestContainers MySQL.
- * Starts a MySQL container once for all tests and loads the production SQL schema.
+ * Starts a MySQL container once for all tests and loads production SQL files
+ * directly from src/main/sql (avoiding duplication).
  */
 public abstract class AbstractTestContainersTest {
 
@@ -52,11 +56,13 @@ public abstract class AbstractTestContainersTest {
                     mysqlContainer.getPassword()
             );
 
-            // Load and execute SQL files in order
-            executeSqlFile(connection, "/sql/dbDDL.sql");
-            executeSqlFile(connection, "/sql/dbTRIGGERS.sql");
-            executeSqlFile(connection, "/sql/dbDML.sql");
-            executeSqlFile(connection, "/sql/testData.sql");  // Test-specific data with proper BCrypt passwords
+            // Load and execute production SQL files from src/main/sql (avoids duplication)
+            executeSqlFileFromPath(connection, "src/main/sql/dbDDL.sql");
+            executeSqlFileFromPath(connection, "src/main/sql/dbTRIGGERS.sql");
+            executeSqlFileFromPath(connection, "src/main/sql/dbDML.sql");
+
+            // Load test-specific data from classpath
+            executeSqlFileFromClasspath(connection, "/sql/testData.sql");
 
             connection.close();
 
@@ -66,12 +72,31 @@ public abstract class AbstractTestContainersTest {
         }
     }
 
-    private static void executeSqlFile(Connection connection, String resourcePath) throws Exception {
+    /**
+     * Load and execute SQL file from filesystem path (e.g., src/main/sql/dbDDL.sql)
+     */
+    private static void executeSqlFileFromPath(Connection connection, String filePath) throws Exception {
+        Path path = Paths.get(filePath);
+        String sql = Files.readString(path);
+        executeSql(connection, sql, filePath);
+    }
+
+    /**
+     * Load and execute SQL file from classpath resources (e.g., /sql/testData.sql)
+     */
+    private static void executeSqlFileFromClasspath(Connection connection, String resourcePath) throws Exception {
         // Read SQL file from resources
         String sql = new BufferedReader(new InputStreamReader(
                 AbstractTestContainersTest.class.getResourceAsStream(resourcePath)))
                 .lines()
                 .collect(Collectors.joining("\n"));
+        executeSql(connection, sql, resourcePath);
+    }
+
+    /**
+     * Parse and execute SQL with DELIMITER support
+     */
+    private static void executeSql(Connection connection, String sql, String sourcePath) throws Exception {
 
         // Remove inline comments (but keep the line structure for multi-line statements)
         StringBuilder cleanedSql = new StringBuilder();
@@ -98,7 +123,7 @@ public abstract class AbstractTestContainersTest {
                 if (trimmed.toUpperCase().startsWith("DELIMITER ")) {
                     // Execute any pending statement before changing delimiter
                     if (currentStatement.length() > 0) {
-                        executeStatement(stmt, currentStatement.toString().trim(), resourcePath);
+                        executeStatement(stmt, currentStatement.toString().trim(), sourcePath);
                         currentStatement = new StringBuilder();
                     }
                     currentDelimiter = trimmed.substring(10).trim();
@@ -136,7 +161,7 @@ public abstract class AbstractTestContainersTest {
                     }
 
                     if (!toExecute.isEmpty()) {
-                        executeStatement(stmt, toExecute, resourcePath);
+                        executeStatement(stmt, toExecute, sourcePath);
                     }
 
                     currentStatement = new StringBuilder();
@@ -147,20 +172,20 @@ public abstract class AbstractTestContainersTest {
             if (currentStatement.length() > 0) {
                 String toExecute = currentStatement.toString().trim();
                 if (!toExecute.isEmpty()) {
-                    executeStatement(stmt, toExecute, resourcePath);
+                    executeStatement(stmt, toExecute, sourcePath);
                 }
             }
         }
     }
 
-    private static void executeStatement(Statement stmt, String sql, String resourcePath) {
+    private static void executeStatement(Statement stmt, String sql, String sourcePath) {
         try {
             stmt.execute(sql);
         } catch (Exception e) {
             // Log but don't fail on individual statement errors
             if (!e.getMessage().contains("doesn't exist") &&
                 !e.getMessage().contains("already exists")) {
-                System.err.println("⚠ Warning executing SQL from " + resourcePath + ": " + e.getMessage());
+                System.err.println("⚠ Warning executing SQL from " + sourcePath + ": " + e.getMessage());
                 System.err.println("Statement preview: " + sql.substring(0, Math.min(100, sql.length())).replace("\n", " "));
             }
         }

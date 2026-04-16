@@ -35,7 +35,7 @@ public class ShiftOverlapTest extends BaseIntegrationTest {
     @Rollback
     void testOverlappingShifts_ThrowsException() {
         // Arrange - create first shift
-        Volunteer volunteer = volunteerRepository.findById(1).orElseThrow();
+        Volunteer volunteer = volunteerRepository.findById(1000).orElseThrow();
         FoodBankBranch branch = branchRepository.findById(1).orElseThrow();
         LocalDate today = LocalDate.now().plusDays(1);
 
@@ -66,7 +66,7 @@ public class ShiftOverlapTest extends BaseIntegrationTest {
     @Rollback
     void testBackToBackShifts_Succeeds() {
         // Arrange
-        Volunteer volunteer = volunteerRepository.findById(1).orElseThrow();
+        Volunteer volunteer = volunteerRepository.findById(1000).orElseThrow();
         FoodBankBranch branch = branchRepository.findById(1).orElseThrow();
         LocalDate today = LocalDate.now().plusDays(2);
 
@@ -96,7 +96,7 @@ public class ShiftOverlapTest extends BaseIntegrationTest {
 
         // Verify both shifts were saved
         long shiftCount = shiftRepository.findAll().stream()
-                .filter(s -> s.getVolunteer().getVolunteerId().equals(1) &&
+                .filter(s -> s.getVolunteer().getVolunteerId().equals(1000) &&
                              s.getShiftDate().equals(today))
                 .count();
         assertEquals(2, shiftCount, "Both back-to-back shifts should be saved");
@@ -106,7 +106,7 @@ public class ShiftOverlapTest extends BaseIntegrationTest {
     @Rollback
     void testNonOverlappingShifts_Succeeds() {
         // Arrange
-        Volunteer volunteer = volunteerRepository.findById(1).orElseThrow();
+        Volunteer volunteer = volunteerRepository.findById(1000).orElseThrow();
         FoodBankBranch branch1 = branchRepository.findById(1).orElseThrow();
         FoodBankBranch branch2 = branchRepository.findById(2).orElseThrow();
         LocalDate today = LocalDate.now().plusDays(3);
@@ -137,7 +137,7 @@ public class ShiftOverlapTest extends BaseIntegrationTest {
 
         // Verify both shifts were saved
         long shiftCount = shiftRepository.findAll().stream()
-                .filter(s -> s.getVolunteer().getVolunteerId().equals(1) &&
+                .filter(s -> s.getVolunteer().getVolunteerId().equals(1000) &&
                              s.getShiftDate().equals(today))
                 .count();
         assertEquals(2, shiftCount, "Both non-overlapping shifts should be saved");
