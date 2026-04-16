@@ -6,6 +6,12 @@ import com.primaryfeed.entity.Staff;
 import com.primaryfeed.entity.User;
 import com.primaryfeed.entity.Volunteer;
 import com.primaryfeed.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,30 +30,49 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@Tag(name = "Users (Staff Only)", description = "Manage system users (Staff and Volunteers). Creates both user account and role-specific subtype records. STAFF access only.")
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
 
+    @Operation(summary = "Get all users", description = "Retrieve all system users (both Staff and Volunteers). Shows user accounts with their role, status, and branch assignments.")
     @GetMapping
     public List<User> getAll() {
         return userService.findAll();
     }
 
+    @Operation(summary = "Get user by ID", description = "Retrieve a specific user account by user_id")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "User found"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<User> getById(@PathVariable Integer id) {
+    public ResponseEntity<User> getById(
+        @Parameter(description = "User ID", example = "1") @PathVariable Integer id) {
         return userService.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(
+        summary = "Get users by role",
+        description = "Retrieve all users with a specific role. Role values: 0=Staff, 1=Volunteer"
+    )
     @GetMapping("/role/{role}")
-    public List<User> getByRole(@PathVariable Byte role) {
+    public List<User> getByRole(
+        @Parameter(description = "User role (0=Staff, 1=Volunteer)", example = "0") @PathVariable Byte role) {
         return userService.findByRole(role);
     }
 
+    @Operation(
+        summary = "Get users by branch",
+        description = "Retrieve all users assigned to a specific branch. Returns both Staff and Volunteers at that location."
+    )
     @GetMapping("/branch/{branchId}")
-    public List<User> getByBranch(@PathVariable Integer branchId) {
+    public List<User> getByBranch(
+        @Parameter(description = "Branch ID", example = "1") @PathVariable Integer branchId) {
         return userService.findByBranchId(branchId);
     }
 
@@ -71,6 +96,26 @@ public class UserController {
      *   "backgroundCheck": 0
      * }
      */
+    @Operation(
+        summary = "Create user (Staff or Volunteer)",
+        description = """
+            Creates both a user account AND the role-specific subtype record in one call.
+
+            **Role values:**
+            - role: 0 = Staff (requires jobTitle, optional hireDate)
+            - role: 1 = Volunteer (requires availability, optional backgroundCheck)
+
+            **Status values:**
+            - status: 0 = Inactive (cannot log in)
+            - status: 1 = Active
+
+            Password is automatically bcrypt hashed before storage.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "User created"),
+        @ApiResponse(responseCode = "400", description = "Email already exists or validation error")
+    })
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
         String email = (String) body.get("email");
@@ -108,13 +153,24 @@ public class UserController {
                 userService.findById(saved.getUserId()).orElse(saved));
     }
 
-    /**
-     * Updates basic user fields. Role cannot be changed after creation.
-     * Password is only re-hashed if a non-blank "password" key is supplied.
-     */
+    @Operation(
+        summary = "Update user",
+        description = """
+            Updates basic user fields (name, email, phone, status, branch, address).
+
+            **IMPORTANT:** Role cannot be changed after user creation.
+
+            Password is only re-hashed if a non-blank "password" key is supplied in the request body.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "User updated"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable Integer id,
-                                    @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> update(
+        @Parameter(description = "User ID", example = "1") @PathVariable Integer id,
+        @RequestBody Map<String, Object> body) {
         return userService.findById(id).map(existing -> {
             buildUser(body, existing);
 
@@ -127,8 +183,17 @@ public class UserController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(
+        summary = "Delete user",
+        description = "Remove a user account. This will also delete the associated Staff or Volunteer subtype record due to CASCADE constraints."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "User deleted"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Integer id) {
+    public ResponseEntity<Void> delete(
+        @Parameter(description = "User ID", example = "1") @PathVariable Integer id) {
         if (userService.findById(id).isEmpty()) return ResponseEntity.notFound().build();
         userService.delete(id);
         return ResponseEntity.noContent().build();
