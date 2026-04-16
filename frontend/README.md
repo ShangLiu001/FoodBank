@@ -1,37 +1,43 @@
-Tech Stack
-Framework: React 19 (Vite 6)
+# PrimaryFeed — Frontend
 
-Styling: Tailwind CSS v3
+React SPA for the PrimaryFeed food bank management system.
 
-Routing: React Router 7
+## Prerequisites
 
-Icons/UI: Custom Tailwind Components
+- Node.js 18+
+- The Spring Boot backend running at `http://34.10.48.147:8080`
 
-📂 Project Structure
-src/App.jsx: Main routing logic and persistent Layout wrapper.
+## Setup
 
-src/Sidebar.jsx: Unified navigation component with active-state tracking.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-src/LoginPage.jsx: Mock authentication portal.
+The app will be available at `http://localhost:5173`.
 
-src/Dashboard.jsx: Overview of system health, inventory counts, and expiration alerts.
+## Login
 
-src/OperationsPortal.jsx: Interface for executing record_donation and record_distribution procedures.
+Use any account from the database. Example accounts:
 
-src/CommunityManagement.jsx: CRUD interface for Volunteers, Donors, and Beneficiaries.
+| Email | Password | Role |
+|---|---|---|
+| carol.lee@bafb.org | password123 | Staff |
 
-🏗 Architecture: Shell & Content Pattern
-To maintain a consistent user experience, the application uses a Persistent Layout pattern.
+Staff accounts see Dashboard and Reports. Volunteer accounts see Operations and Community only.
 
-The Shell (App.jsx + Sidebar.jsx): Handles the sidebar, navigation, and overall page structure.
+## Pages
 
-The Content: Individual pages (Dashboard, Operations, etc.) only contain the specific UI for that route. They are "injected" into the layout, preventing unnecessary re-renders of the navigation system.
+| Route | Access | Description |
+|---|---|---|
+| `/dashboard` | Staff only | Metric cards, expiring inventory, recent donations |
+| `/operations` | All | Inventory, Donations, Distributions, Food Items CRUD |
+| `/community` | All | Volunteers, Donors, Beneficiaries, Staff, Shifts CRUD |
+| `/reports` | Staff only | 17 pre-built insight queries |
 
-📊 Database Integration Points
-This frontend is designed to interface with the following primaryfeed_db objects:
+## Tech Stack
 
-Views: vw_expiring_inventory (Dashboard) and vw_volunteer_hours_log.
-
-Stored Procedures: record_donation and record_distribution (Operations Portal).
-
-Triggers: Logic to handle volunteer shift overlaps (Community Management).
+- React 19 + Vite 6
+- React Router 7
+- Tailwind CSS 3
