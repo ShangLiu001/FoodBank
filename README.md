@@ -15,7 +15,8 @@ PrimaryFeed is a food bank management system built around a centralized MySQL re
 5. [API Overview](#api-overview) — Endpoint groups (see Swagger for details)
 6. [Common Workflows](#common-workflows) — Recording donations, distributions, creating users
 7. [Error Responses](#error-responses) — HTTP status codes and trigger errors
-8. [Deployment](#deployment) — Production environment
+8. [Testing](#testing) - Testing and CI/CD
+9. [Deployment](#deployment) — Production environment
 
 ---
 
@@ -312,3 +313,47 @@ Examples:
 **Production:** GCP Compute Engine at `http://34.10.48.147:8080`
 
 Database schema (`dbDDL.sql`), triggers (`dbTRIGGERS.sql`), procedures (`dbPROCS.sql`), and seed data (`dbDML.sql`) are located in `src/main/sql/`.
+
+## Testing
+
+**22 integration tests** using TestContainers (real MySQL 8.0 in Docker) to validate triggers, authentication, and workflows.
+
+### Running Tests
+
+```bash
+mvn test  # Requires Docker to be running
+```
+
+```bash
+# Run a specific test class
+mvn test -Dtest=DonationFlowIntegrationTest
+```
+
+```bash
+# Run with verbose output
+mvn test -X
+```
+
+### Coverage
+
+| Test Class | Tests | Coverage |
+|---|---|---|
+| `AuthenticationFlowTest` | 3 | JWT login, invalid credentials, inactive user |
+| `AuthorizationTest` | 3 | Role-based access control (staff vs. volunteer) |
+| `DonationFlowIntegrationTest` | 4 | Triggers: create/increment inventory, batch separation |
+| `DistributionFlowIntegrationTest` | 3 | Triggers: decrement inventory, stock validation |
+| `UserCreationTest` | 2 | Role validation triggers (staff/volunteer) |
+| `ShiftOverlapTest` | 3 | Volunteer shift overlap prevention |
+| `SmokeTest` | 1 | End-to-end: donation → inventory → distribution |
+
+**Test data:**
+Tests use dedicated test-specific data to avoid conflicts with seed data:
+- Test users: `user_id` 1000+ (staff@test.com, volunteer@test.com)
+- Test food items: `TEST-001`, `TEST-002`, `TEST-003`, `TEST-004` (SKU prefix to avoid production SKU conflicts)
+- BCrypt password for all test users: `test123` (hash: `$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK`)
+
+### CI/CD
+
+GitHub Actions workflow (`.github/workflows/test.yml`) runs tests on push/PR to `main` or `develop`. Test reports published automatically.
+
+**Troubleshooting:** If tests fail with "Could not find Docker", start Docker Desktop first (`open -a Docker` on macOS).
