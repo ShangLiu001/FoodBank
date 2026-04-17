@@ -1,9 +1,13 @@
 package com.primaryfeed.controller;
 
+import com.primaryfeed.auth.JwtUtil;
 import com.primaryfeed.entity.FoodCategory;
 import com.primaryfeed.entity.FoodItem;
 import com.primaryfeed.entity.Inventory;
+import com.primaryfeed.entity.User;
+import com.primaryfeed.repository.FoodBankBranchRepository;
 import com.primaryfeed.service.InventoryService;
+import com.primaryfeed.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/inventory")
@@ -25,16 +30,42 @@ import java.util.List;
 public class InventoryController {
 
     private final InventoryService inventoryService;
+    private final UserService userService;
+    private final JwtUtil jwtUtil;
+    private final FoodBankBranchRepository branchRepository;
+
+    /** Extract branch IDs belonging to the current user's food bank. */
+    private List<Integer> resolveBranchIds(String header) {
+        String email = jwtUtil.extractEmail(header.substring(7));
+        User user = userService.findByEmail(email).orElse(null);
+        if (user == null || user.getBranch() == null || user.getBranch().getFoodBank() == null) {
+            return List.of();
+        }
+        Integer foodBankId = user.getBranch().getFoodBank().getFoodBankId();
+        return branchRepository.findByFoodBank_FoodBankId(foodBankId).stream()
+                .map(b -> b.getBranchId())
+                .toList();
+    }
 
     // ── Inventory records ──────────────────────────────────────────────────────
 
     @Operation(
         summary = "Get all inventory records",
-        description = "Retrieve all inventory stock records across all branches. Each record represents a specific food item (SKU) at a branch with an expiry date."
+        description = "Retrieve inventory stock records scoped to the current user's food bank. Each record represents a specific food item (SKU) at a branch with an expiry date."
     )
     @GetMapping
-    public List<Inventory> getAll() {
-        return inventoryService.findAll();
+    public ResponseEntity<?> getAll(
+        @RequestHeader(value = "Authorization", required = false)
+        @io.swagger.v3.oas.annotations.Parameter(hidden = true) String header
+    ) {
+        if (header == null || !header.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).body(Map.of("error", "Missing or invalid Authorization header"));
+        }
+        List<Integer> branchIds = resolveBranchIds(header);
+        if (branchIds.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(inventoryService.findByBranchIds(branchIds));
     }
 
     @Operation(summary = "Get inventory by ID", description = "Retrieve a specific inventory record")
@@ -62,20 +93,40 @@ public class InventoryController {
 
     @Operation(
         summary = "Get expiring inventory",
-        description = "Retrieve inventory items expiring within the next 3 days. Use this to prioritize distribution of soon-to-expire items."
+        description = "Retrieve inventory items expiring within the next 3 days, scoped to the current user's food bank."
     )
     @GetMapping("/expiring")
-    public List<Inventory> getExpiring() {
-        return inventoryService.findExpiringSoon(LocalDateTime.now().plusDays(3));
+    public ResponseEntity<?> getExpiring(
+        @RequestHeader(value = "Authorization", required = false)
+        @io.swagger.v3.oas.annotations.Parameter(hidden = true) String header
+    ) {
+        if (header == null || !header.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).body(Map.of("error", "Missing or invalid Authorization header"));
+        }
+        List<Integer> branchIds = resolveBranchIds(header);
+        if (branchIds.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(inventoryService.findExpiringSoonByBranchIds(LocalDateTime.now().plusDays(3), branchIds));
     }
 
     @Operation(
         summary = "Get out-of-stock items",
-        description = "Retrieve inventory records with quantity = 0. Useful for identifying items that need restocking."
+        description = "Retrieve inventory records with quantity = 0, scoped to the current user's food bank."
     )
     @GetMapping("/out-of-stock")
-    public List<Inventory> getOutOfStock() {
-        return inventoryService.findOutOfStock();
+    public ResponseEntity<?> getOutOfStock(
+        @RequestHeader(value = "Authorization", required = false)
+        @io.swagger.v3.oas.annotations.Parameter(hidden = true) String header
+    ) {
+        if (header == null || !header.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).body(Map.of("error", "Missing or invalid Authorization header"));
+        }
+        List<Integer> branchIds = resolveBranchIds(header);
+        if (branchIds.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(inventoryService.findOutOfStockByBranchIds(branchIds));
     }
 
     @Operation(summary = "Create inventory record", description = "Add a new inventory record (stock at a branch)")
