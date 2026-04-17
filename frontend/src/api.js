@@ -1,5 +1,3 @@
-const API_BASE = 'http://34.10.48.147:8080';
-
 function authHeaders() {
   const token = localStorage.getItem('token');
   return {
@@ -16,7 +14,7 @@ async function request(method, path, body) {
   if (body !== undefined) {
     options.body = JSON.stringify(body);
   }
-  const response = await fetch(`${API_BASE}${path}`, options);
+  const response = await fetch(path, options);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.error || `HTTP ${response.status}`);
