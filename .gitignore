@@ -1,11 +1,16 @@
-
 target/
-
 *.class
-
 *.jar
-
 .mvn/
-
 application-local.properties
 
+.idea/
+frontend/node_modules/
+frontend/dist/
+frontend/node/
+node/
+src/main/resources/static/
+*~
+.claude/
+.env
+.env.production
