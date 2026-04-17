@@ -77,13 +77,6 @@ public class AuthController {
         String password = body.get("password");
 
         User user = userService.findByEmail(email).orElse(null);
-        System.out.println("=== LOGIN DEBUG ===");
-        System.out.println("Email: " + email);
-        System.out.println("User found: " + (user != null));
-        if (user != null) {
-            System.out.println("Hash in DB: " + user.getPasswordHash());
-            System.out.println("Password match: " + passwordEncoder.matches(password, user.getPasswordHash()));
-        }
         if (user == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
         }

@@ -32,8 +32,12 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public
-                        .requestMatchers("/", "/health", "/api/auth/**").permitAll()
+                        // Static files (frontend)
+                        .requestMatchers("/", "/index.html", "/assets/**", "/favicon.svg", "/favicon.ico", "/icons.svg").permitAll()
+                        // Allow React Router paths (SpaController forwards these)
+                        .requestMatchers("/dashboard", "/inventory", "/operations", "/community", "/reports", "/login").permitAll()
+                        // Public API
+                        .requestMatchers("/health", "/api/auth/**").permitAll()
                         // Swagger/OpenAPI
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         // Staff only

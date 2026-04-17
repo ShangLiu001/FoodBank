@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 
-const API_BASE = 'http://34.10.48.147:8080';
-
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +12,7 @@ const LoginPage = () => {
     setError('');
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
+      const response = await fetch(`/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
