@@ -10,13 +10,14 @@ PrimaryFeed is a food bank management system built around a centralized MySQL re
 
 1. [Quick Start](#quick-start-local-development) — Setup instructions for local development
 2. [Tech Stack](#tech-stack) — Technologies used
-3. [Authentication & Roles](#authentication--roles) — JWT auth, STAFF vs VOLUNTEER roles
-4. [Key Concepts](#key-concepts) — Donation → Inventory → Distribution flow, triggers, design decisions
-5. [API Overview](#api-overview) — Endpoint groups (see Swagger for details)
-6. [Common Workflows](#common-workflows) — Recording donations, distributions, creating users
-7. [Error Responses](#error-responses) — HTTP status codes and trigger errors
-8. [Testing](#testing) - Testing and CI/CD
-9. [Deployment](#deployment) — Production environment
+3. [Project Structure](#project-structure) — Key directories and SQL files
+4. [Authentication & Roles](#authentication--roles) — JWT auth, STAFF vs VOLUNTEER roles
+5. [Key Concepts](#key-concepts) — Donation → Inventory → Distribution flow, triggers, design decisions
+6. [API Overview](#api-overview) — Endpoint groups (see Swagger for details)
+7. [Common Workflows](#common-workflows) — Recording donations, distributions, creating users
+8. [Error Responses](#error-responses) — HTTP status codes and trigger errors
+9. [Testing](#testing) — Testing and CI/CD
+10. [Deployment](#deployment) — Production environment
 
 ---
 
@@ -25,29 +26,54 @@ PrimaryFeed is a food bank management system built around a centralized MySQL re
 ### Prerequisites
 
 - **Java 25+** (or Java 21+)
-- **MySQL 8**
+- **MySQL 8** (running locally on port 3306 (default))
 - **Maven 3.8+**
+- **Docker** (required for integration tests — TestContainers spins up a real MySQL instance)
+
+> **Note:** The frontend (React/Vite) is built automatically by Maven via frontend-maven-plugin during mvn package. No separate Node.js install is required. To run the frontend standalone with Vite HMR (e.g. against the GCP backend), see [frontend/README.md](frontend/README.md).
 
 ### Database Setup
 
+The fastest way to set up the local database is through `execute.sql`, which sources all SQL files in the correct order:
+
 ```bash
-# 1. Create database
-mysql -u root -e "CREATE DATABASE primaryfeed;"
-
-# 2. Run DDL (tables)
-mysql -u root primaryfeed < src/main/sql/dbDDL.sql
-
-# 3. Run triggers
-mysql -u root primaryfeed < src/main/sql/dbTRIGGERS.sql
-
-# 4. Run procedures
-mysql -u root primaryfeed < src/main/sql/dbPROCS.sql
-
-# 5. Run DML (seed data)
-mysql -u root primaryfeed < src/main/sql/dbDML.sql
+mysql -u root -p < src/main/sql/execute.sql
 ```
 
-**Order is critical:** Triggers and procedures must exist before seeding data, as DML inserts will fire triggers automatically.
+This runs the following files in order:
+
+| Step | File | Purpose |
+|---|---|---|
+| 1 | `dbDDL.sql` | Creates the database (if not exists), tables, views, triggers, and procedures |
+| 2 | `dbDML.sql` | Seeds sample data (food banks, branches, users, donors, beneficiaries, inventory) |
+
+> **Order matters:** The DDL file sources `dbTRIGGERS.sql` and `dbPROCS.sql` internally — triggers and procedures must exist before seed data is inserted, since DML inserts fire triggers automatically.
+
+<details>
+<summary><strong>Manual setup (if you prefer step-by-step)</strong></summary>
+
+```bash
+# 1. Run DDL (creates database, tables, views, triggers, procedures)
+mysql -u root -p < src/main/sql/dbDDL.sql
+
+# 2. Run DML (seed data)
+mysql -u root -p < src/main/sql/dbDML.sql
+```
+
+</details>
+
+<details>
+<summary><strong>Resetting the database</strong></summary>
+
+```bash
+# Drop all tables and start fresh
+mysql -u root -p < src/main/sql/dbDROP.sql
+
+# Then re-run execute.sql
+mysql -u root -p < src/main/sql/execute.sql
+```
+
+</details>
 
 ### Application Setup
 
@@ -78,14 +104,10 @@ All endpoint details, request/response schemas, and interactive testing availabl
 
 ### Test Credentials
 
-```json
-{
-  "email": "alice.nguyen@bafb.org",
-  "password": "yourpassword"
-}
-```
-
-**Role:** STAFF (full access including reports)
+| Role | Email | Password |
+|---|---|---|
+| **STAFF** (full access including reports) | `alice.nguyen@bafb.org` | `test123` |
+| **VOLUNTEER** (operational access, no reports) | `bob.tran@bafb.org` | `test123` |
 
 ---
 
@@ -97,10 +119,25 @@ All endpoint details, request/response schemas, and interactive testing availabl
 | ORM | Spring Data JPA / Hibernate 6 |
 | Database | MySQL 8 |
 | Auth | JWT (stateless, Spring Security) |
-| Frontend | React (SPA) |
+| Frontend | React (SPA), built via `frontend-maven-plugin` |
 | Deployment | GCP Compute Engine |
 
 ---
+
+## Project Structure
+
+```
+FoodBank/
+├── frontend/                  # React/Vite SPA (built into Spring Boot JAR by Maven)
+├── src/
+│   ├── main/
+│   │   ├── java/              # Spring Boot controllers, services, entities, security
+│   │   ├── resources/         # Application properties, static assets
+│   │   └── sql/               # Database scripts (see Database Setup)
+│   └── test/                  # Integration tests (TestContainers + real MySQL)
+├── .github/workflows/         # CI/CD (test suite + GCP deploy)
+└── pom.xml                    # Maven build (includes frontend-maven-plugin)
+```
 
 ## Authentication & Roles
 
@@ -193,7 +230,7 @@ DONOR ──► DONATION ──► INVENTORY ◄── DISTRIBUTION ──► BE
 
 **Important:** `distribution_items` references `inventory_id` (specific batch), not `food_sku`. This enables FIFO — distribute the oldest batch first.
 
-### Database Triggers (Automatic)
+### Database Triggers
 
 | Trigger | Fires On | Purpose |
 |---|---|---|
@@ -206,12 +243,28 @@ DONOR ──► DONATION ──► INVENTORY ◄── DISTRIBUTION ──► BE
 
 When a trigger raises `SQLSTATE '45000'`, the API returns 400 with the trigger's error message.
 
+### Stored Procedures
+
+| Procedure | Purpose |
+|---|---|
+| `record_donation` | Inserts a donation header + line item and creates or increments the corresponding inventory batch in a single transaction |
+| `record_distribution` | Inserts a distribution header + line item, validates stock, and decrements inventory using FIFO (oldest expiry first) in a single transaction |
+
+Example calls and verification queries are in `src/main/sql/dbPROCSCALL.sql`.
+
+### Views
+
+| View | Purpose |
+|---|---|
+| `vw_expiring_inventory` | Items with `quantity > 0` expiring within 3 months, with computed `days_until_expiry`. Expiry tiers: perishable categories (Produce/Dairy/Meat/Seafood/Bakery) = 7 days; others = 90 days |
+| `vw_volunteer_hours_log` | Volunteer shifts joined with user names, with `total_hours` formatted as `Xh Ym` |
+
 ### Critical Design Decisions
 
 - **`food_items.sku` is VARCHAR(45)**, not an integer (e.g., "SKU-001")
 - **Same SKU can exist at multiple branches** with different quantities and expiry dates
 - **Same SKU can appear multiple times at ONE branch** if received in different batches (different expiry dates)
-- **`food_categories` is READ-ONLY** — category names drive the expiry tier logic in `vw_expiring_inventory` (Produce/Dairy/Meat/Seafood/Bakery = 7 days; others = 90 days)
+- **`food_categories` is READ-ONLY** — category names drive the expiry tier logic in `vw_expiring_inventory`
 - **`donation_items` unique constraint:** (donation_id, food_sku, expiry_date) — same SKU allowed if expiry differs
 - **`distribution_items` unique constraint:** (distribution_id, inventory_id) — cannot use same batch twice in one distribution
 
@@ -308,15 +361,9 @@ Examples:
 
 ---
 
-## Deployment
-
-**Production:** GCP Compute Engine at `http://34.10.48.147:8080`
-
-Database schema (`dbDDL.sql`), triggers (`dbTRIGGERS.sql`), procedures (`dbPROCS.sql`), and seed data (`dbDML.sql`) are located in `src/main/sql/`.
-
 ## Testing
 
-**22 integration tests** using TestContainers (real MySQL 8.0 in Docker) to validate triggers, authentication, and workflows.
+**21 integration tests** using TestContainers (real MySQL 8.0 in Docker) to validate triggers, authentication, and workflows.
 
 ### Running Tests
 
@@ -342,7 +389,7 @@ mvn test -X
 | `AuthorizationTest` | 3 | Role-based access control (staff vs. volunteer) |
 | `DonationFlowIntegrationTest` | 4 | Triggers: create/increment inventory, batch separation |
 | `DistributionFlowIntegrationTest` | 3 | Triggers: decrement inventory, stock validation |
-| `UserCreationTest` | 2 | Role validation triggers (staff/volunteer) |
+| `UserCreationTest` | 4 | Role validation triggers (staff/volunteer) |
 | `ShiftOverlapTest` | 3 | Volunteer shift overlap prevention |
 | `SmokeTest` | 1 | End-to-end: donation → inventory → distribution |
 
@@ -357,3 +404,11 @@ Tests use dedicated test-specific data to avoid conflicts with seed data:
 GitHub Actions workflow (`.github/workflows/test.yml`) runs tests on push/PR to `main` or `develop`. Test reports published automatically.
 
 **Troubleshooting:** If tests fail with "Could not find Docker", start Docker Desktop first (`open -a Docker` on macOS).
+
+---
+
+## Deployment
+
+**Production:** GCP Compute Engine at `http://34.10.48.147:8080`
+
+Database schema (`dbDDL.sql`), triggers (`dbTRIGGERS.sql`), procedures (`dbPROCS.sql`), and seed data (`dbDML.sql`) are located in `src/main/sql/`.
