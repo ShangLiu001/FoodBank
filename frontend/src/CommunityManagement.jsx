@@ -32,7 +32,7 @@ const StatusBadge = ({ active }) => (
 );
 
 // ─── VOLUNTEERS TAB ───────────────────────────────────────────────────────────
-const VolunteersTab = ({ volunteers, loading, onRefresh }) => {
+const VolunteersTab = ({ volunteers, branches, loading, onRefresh }) => {
   const [showAdd, setShowAdd]     = useState(false);
   const [editing, setEditing]     = useState(null);
   const [err, setErr]             = useState('');
@@ -134,7 +134,12 @@ const VolunteersTab = ({ volunteers, loading, onRefresh }) => {
             {!editing && <Lbl text="Email"><input type="email" required className={inp} value={form.email} onChange={e => set('email', e.target.value)} /></Lbl>}
             <div className="grid grid-cols-2 gap-4">
               <Lbl text="Phone"><input className={inp} value={form.phone} onChange={e => set('phone', e.target.value)} /></Lbl>
-              <Lbl text="Branch ID"><input type="number" required className={inp} value={form.branchId} onChange={e => set('branchId', e.target.value)} /></Lbl>
+              <Lbl text="Branch">
+                <select required className={inp} value={form.branchId} onChange={e => set('branchId', e.target.value)}>
+                  <option value="">Select branch…</option>
+                  {branches.map(b => <option key={b.branchId} value={b.branchId}>{b.branchName}</option>)}
+                </select>
+              </Lbl>
             </div>
             <Lbl text={editing ? 'New Password (leave blank to keep)' : 'Password'}>
               <input type="password" required={!editing} className={inp} value={form.password} onChange={e => set('password', e.target.value)} />
@@ -346,7 +351,7 @@ const BeneficiariesTab = ({ beneficiaries, loading, onRefresh }) => {
 };
 
 // ─── STAFF TAB ────────────────────────────────────────────────────────────────
-const StaffTab = ({ staff, loading, onRefresh }) => {
+const StaffTab = ({ staff, branches, loading, onRefresh }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [err, setErr]         = useState('');
@@ -427,7 +432,12 @@ const StaffTab = ({ staff, loading, onRefresh }) => {
             {!editing && <Lbl text="Email"><input type="email" required className={inp} value={form.email} onChange={e => set('email', e.target.value)} /></Lbl>}
             <div className="grid grid-cols-2 gap-4">
               <Lbl text="Phone"><input className={inp} value={form.phone} onChange={e => set('phone', e.target.value)} /></Lbl>
-              <Lbl text="Branch ID"><input type="number" required className={inp} value={form.branchId} onChange={e => set('branchId', e.target.value)} /></Lbl>
+              <Lbl text="Branch">
+                <select required className={inp} value={form.branchId} onChange={e => set('branchId', e.target.value)}>
+                  <option value="">Select branch…</option>
+                  {branches.map(b => <option key={b.branchId} value={b.branchId}>{b.branchName}</option>)}
+                </select>
+              </Lbl>
             </div>
             <Lbl text={editing ? 'New Password (leave blank to keep)' : 'Password'}>
               <input type="password" required={!editing} className={inp} value={form.password} onChange={e => set('password', e.target.value)} />
@@ -455,7 +465,7 @@ const StaffTab = ({ staff, loading, onRefresh }) => {
 };
 
 // ─── SHIFTS TAB ───────────────────────────────────────────────────────────────
-const ShiftsTab = ({ volunteers, loading: volLoading, onRefresh }) => {
+const ShiftsTab = ({ volunteers, branches, loading: volLoading, onRefresh }) => {
   const [shifts, setShifts]       = useState([]);
   const [loading, setLoading]     = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -578,7 +588,12 @@ const ShiftsTab = ({ volunteers, loading: volLoading, onRefresh }) => {
                   ))}
                 </select>
               </Lbl>
-              <Lbl text="Branch ID"><input type="number" required className={inp} value={form.branchId} onChange={e => set('branchId', e.target.value)} /></Lbl>
+              <Lbl text="Branch">
+                <select required className={inp} value={form.branchId} onChange={e => set('branchId', e.target.value)}>
+                  <option value="">Select branch…</option>
+                  {branches.map(b => <option key={b.branchId} value={b.branchId}>{b.branchName}</option>)}
+                </select>
+              </Lbl>
             </div>
             <Lbl text="Shift Date"><input type="date" required className={inp} value={form.shiftDate} onChange={e => set('shiftDate', e.target.value)} /></Lbl>
             <div className="grid grid-cols-2 gap-4">
@@ -604,19 +619,21 @@ const CommunityManagement = () => {
   const [donors, setDonors]               = useState([]);
   const [beneficiaries, setBeneficiaries] = useState([]);
   const [staff, setStaff]                 = useState([]);
+  const [branches, setBranches]           = useState([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState('');
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [vols, drs, bens, stf] = await Promise.all([
+      const [vols, drs, bens, stf, br] = await Promise.all([
         api.get('/api/volunteers'),
         api.get('/api/donors'),
         api.get('/api/beneficiaries'),
         api.get('/api/users/role/0'),
+        api.get('/api/branches'),
       ]);
-      setVolunteers(vols); setDonors(drs); setBeneficiaries(bens); setStaff(stf);
+      setVolunteers(vols); setDonors(drs); setBeneficiaries(bens); setStaff(stf); setBranches(br);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, []);
 
@@ -645,11 +662,11 @@ const CommunityManagement = () => {
           </button>
         ))}
       </div>
-      {activeTab === 'volunteers'    && <VolunteersTab    volunteers={volunteers}       loading={loading} onRefresh={fetchAll} />}
+      {activeTab === 'volunteers'    && <VolunteersTab    volunteers={volunteers}       branches={branches} loading={loading} onRefresh={fetchAll} />}
       {activeTab === 'donors'        && <DonorsTab        donors={donors}               loading={loading} onRefresh={fetchAll} />}
       {activeTab === 'beneficiaries' && <BeneficiariesTab beneficiaries={beneficiaries} loading={loading} onRefresh={fetchAll} />}
-      {activeTab === 'staff'         && <StaffTab         staff={staff}                 loading={loading} onRefresh={fetchAll} />}
-      {activeTab === 'shifts'        && <ShiftsTab        volunteers={volunteers}        loading={loading} onRefresh={fetchAll} />}
+      {activeTab === 'staff'         && <StaffTab         staff={staff}                 branches={branches} loading={loading} onRefresh={fetchAll} />}
+      {activeTab === 'shifts'        && <ShiftsTab        volunteers={volunteers}       branches={branches} loading={loading} onRefresh={fetchAll} />}
     </div>
   );
 };

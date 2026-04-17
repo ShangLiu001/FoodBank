@@ -174,7 +174,7 @@ const InventoryTab = ({ inventory, outOfStock, loading, onRefresh }) => {
 };
 
 // ─── DONATIONS TAB ────────────────────────────────────────────────────────────
-const DonationsTab = ({ donations, donors, foodItems, loading, onRefresh }) => {
+const DonationsTab = ({ donations, donors, foodItems, branches, loading, onRefresh }) => {
   const [showModal, setShowModal]       = useState(false);
   const [expandedId, setExpandedId]     = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
@@ -318,9 +318,11 @@ const DonationsTab = ({ donations, donors, foodItems, loading, onRefresh }) => {
                   {donors.map(d => <option key={d.donorId} value={d.donorId}>{d.donorName}</option>)}
                 </select>
               </Lbl>
-              <Lbl text="Branch ID">
-                <input type="number" required placeholder="e.g. 1" className={inp}
-                  value={form.branchId} onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))} />
+              <Lbl text="Branch">
+                <select required className={inp} value={form.branchId} onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}>
+                  <option value="">Select branch…</option>
+                  {branches.map(b => <option key={b.branchId} value={b.branchId}>{b.branchName}</option>)}
+                </select>
               </Lbl>
             </div>
             <Lbl text="Date">
@@ -363,7 +365,7 @@ const DonationsTab = ({ donations, donors, foodItems, loading, onRefresh }) => {
 };
 
 // ─── DISTRIBUTIONS TAB ────────────────────────────────────────────────────────
-const DistributionsTab = ({ distributions, eligibleBeneficiaries, inventory, loading, onRefresh }) => {
+const DistributionsTab = ({ distributions, eligibleBeneficiaries, inventory, branches, loading, onRefresh }) => {
   const [showModal, setShowModal]         = useState(false);
   const [expandedId, setExpandedId]       = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
@@ -504,7 +506,12 @@ const DistributionsTab = ({ distributions, eligibleBeneficiaries, inventory, loa
                   {eligibleBeneficiaries.map(b => <option key={b.beneficiaryId} value={b.beneficiaryId}>{b.beneficiaryFullName}</option>)}
                 </select>
               </Lbl>
-              <Lbl text="Branch ID"><input type="number" required placeholder="e.g. 1" className={inp} value={form.branchId} onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))} /></Lbl>
+              <Lbl text="Branch">
+                <select required className={inp} value={form.branchId} onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}>
+                  <option value="">Select branch…</option>
+                  {branches.map(b => <option key={b.branchId} value={b.branchId}>{b.branchName}</option>)}
+                </select>
+              </Lbl>
             </div>
             <Lbl text="Date"><input type="date" required className={inp} value={form.distributionDate} onChange={e => setForm(p => ({ ...p, distributionDate: e.target.value }))} /></Lbl>
             <div>
@@ -671,13 +678,14 @@ const OperationsPortal = () => {
   const [donors, setDonors]                   = useState([]);
   const [eligibleBeneficiaries, setEligible]  = useState([]);
   const [foodItems, setFoodItems]             = useState([]);
+  const [branches, setBranches]               = useState([]);
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState('');
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [inv, oos, don, dist, drs, bens, foods] = await Promise.all([
+      const [inv, oos, don, dist, drs, bens, foods, br] = await Promise.all([
         api.get('/api/inventory'),
         api.get('/api/inventory/out-of-stock'),
         api.get('/api/donations'),
@@ -685,9 +693,10 @@ const OperationsPortal = () => {
         api.get('/api/donors'),
         api.get('/api/beneficiaries/eligible'),
         api.get('/api/inventory/food-items'),
+        api.get('/api/branches'),
       ]);
       setInventory(inv); setOutOfStock(oos); setDonations(don);
-      setDistributions(dist); setDonors(drs); setEligible(bens); setFoodItems(foods);
+      setDistributions(dist); setDonors(drs); setEligible(bens); setFoodItems(foods); setBranches(br);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, []);
 
@@ -716,8 +725,8 @@ const OperationsPortal = () => {
         ))}
       </div>
       {activeTab === 'inventory'     && <InventoryTab inventory={inventory} outOfStock={outOfStock} loading={loading} onRefresh={fetchAll} />}
-      {activeTab === 'donations'     && <DonationsTab donations={donations} donors={donors} foodItems={foodItems} loading={loading} onRefresh={fetchAll} />}
-      {activeTab === 'distributions' && <DistributionsTab distributions={distributions} eligibleBeneficiaries={eligibleBeneficiaries} inventory={inventory} loading={loading} onRefresh={fetchAll} />}
+      {activeTab === 'donations'     && <DonationsTab donations={donations} donors={donors} foodItems={foodItems} branches={branches} loading={loading} onRefresh={fetchAll} />}
+      {activeTab === 'distributions' && <DistributionsTab distributions={distributions} eligibleBeneficiaries={eligibleBeneficiaries} inventory={inventory} branches={branches} loading={loading} onRefresh={fetchAll} />}
       {activeTab === 'food-items'    && <FoodItemsTab foodItems={foodItems} loading={loading} onRefresh={fetchAll} />}
     </div>
   );

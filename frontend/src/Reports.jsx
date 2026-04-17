@@ -1,24 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from './api';
 
 // ─── Query definitions ────────────────────────────────────────────────────────
+// type: 'select' params are rendered as dropdowns populated from lookup data.
 const QUERIES = [
-  { id: 1,  title: 'Items at Branch',               params: [{ key: 'branchId',      label: 'Branch ID',      type: 'number' }] },
+  { id: 1,  title: 'Items at Branch',               params: [{ key: 'branchId',      label: 'Branch',         type: 'select', source: 'branches' }] },
   { id: 2,  title: 'Expiring in 3 Days',            params: [] },
   { id: 3,  title: 'Total Stock — All Branches',    params: [] },
   { id: 4,  title: 'Items by Category',             params: [] },
   { id: 5,  title: 'Top Distributing Branch (last month)', params: [] },
-  { id: 6,  title: 'Volunteers at Branch',          params: [{ key: 'branchId',      label: 'Branch ID',      type: 'number' }] },
+  { id: 6,  title: 'Volunteers at Branch',          params: [{ key: 'branchId',      label: 'Branch',         type: 'select', source: 'branches' }] },
   { id: 7,  title: 'Volunteer Hours (last 30 days)',params: [] },
   { id: 8,  title: 'Volunteers in Time Window',     params: [
-    { key: 'branchId',   label: 'Branch ID',   type: 'number' },
+    { key: 'branchId',   label: 'Branch',     type: 'select', source: 'branches' },
     { key: 'date',       label: 'Date',        type: 'date' },
     { key: 'startTime',  label: 'Start Time',  type: 'time' },
     { key: 'endTime',    label: 'End Time',    type: 'time' },
   ]},
-  { id: 9,  title: 'Distribution History — Beneficiary', params: [{ key: 'beneficiaryId', label: 'Beneficiary ID', type: 'number' }] },
+  { id: 9,  title: 'Distribution History — Beneficiary', params: [{ key: 'beneficiaryId', label: 'Beneficiary', type: 'select', source: 'beneficiaries' }] },
   { id: 10, title: 'Beneficiaries Served This Week', params: [] },
-  { id: 11, title: 'Donations from Donor',          params: [{ key: 'donorId',       label: 'Donor ID',       type: 'number' }] },
+  { id: 11, title: 'Donations from Donor',          params: [{ key: 'donorId',       label: 'Donor',          type: 'select', source: 'donors' }] },
   { id: 12, title: 'Stock vs Distributed (Net Surplus)', params: [] },
   { id: 13, title: 'Items Below Quantity Threshold',params: [{ key: 'threshold',     label: 'Threshold',      type: 'number' }] },
   { id: 14, title: 'All Users & Roles',             params: [] },
@@ -73,6 +74,21 @@ const Reports = () => {
   const [results, setResults]     = useState(null);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
+
+  // Lookup data for select dropdowns
+  const [lookups, setLookups]     = useState({ branches: [], donors: [], beneficiaries: [] });
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/api/branches'),
+      api.get('/api/lookups/donors'),
+      api.get('/api/lookups/beneficiaries'),
+    ]).then(([br, dr, bn]) => setLookups({
+      branches:      br.map(b => ({ id: b.branchId, name: b.branchName })),
+      donors:        dr,   // already { id, name }
+      beneficiaries: bn,   // already { id, name }
+    })).catch(() => {});
+  }, []);
 
   const selectQuery = q => {
     setSelected(q);
@@ -135,13 +151,27 @@ const Reports = () => {
                 {selected.params.map(p => (
                   <div key={p.key}>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{p.label}</label>
-                    <input
-                      type={p.type}
-                      required
-                      className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={paramValues[p.key] || ''}
-                      onChange={e => setParams(prev => ({ ...prev, [p.key]: e.target.value }))}
-                    />
+                    {p.type === 'select' ? (
+                      <select
+                        required
+                        className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={paramValues[p.key] || ''}
+                        onChange={e => setParams(prev => ({ ...prev, [p.key]: e.target.value }))}
+                      >
+                        <option value="">Select {p.label.toLowerCase()}…</option>
+                        {(lookups[p.source] || []).map(opt => (
+                          <option key={opt.id} value={opt.id}>{opt.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={p.type}
+                        required
+                        className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={paramValues[p.key] || ''}
+                        onChange={e => setParams(prev => ({ ...prev, [p.key]: e.target.value }))}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

@@ -25,9 +25,12 @@ public class InventoryService {
     public List<Inventory> findAll() { return inventoryRepository.findAll(); }
     public Optional<Inventory> findById(Integer id) { return inventoryRepository.findById(id); }
     public List<Inventory> findByBranchId(Integer branchId) { return inventoryRepository.findByBranch_BranchId(branchId); }
+    public List<Inventory> findByBranchIds(List<Integer> branchIds) { return inventoryRepository.findByBranch_BranchIdIn(branchIds); }
     public List<Inventory> findByFoodItemSku(String sku) { return inventoryRepository.findByFoodItem_Sku(sku); }
     public List<Inventory> findExpiringSoon(LocalDateTime cutoff) { return inventoryRepository.findExpiringSoon(cutoff); }
+    public List<Inventory> findExpiringSoonByBranchIds(LocalDateTime cutoff, List<Integer> branchIds) { return inventoryRepository.findExpiringSoonByBranchIds(cutoff, branchIds); }
     public List<Inventory> findOutOfStock() { return inventoryRepository.findOutOfStock(); }
+    public List<Inventory> findOutOfStockByBranchIds(List<Integer> branchIds) { return inventoryRepository.findOutOfStockByBranchIds(branchIds); }
     public Inventory save(Inventory inventory) { return inventoryRepository.save(inventory); }
     public void delete(Integer id) { inventoryRepository.deleteById(id); }
 
