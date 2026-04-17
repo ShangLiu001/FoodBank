@@ -11,7 +11,7 @@ const Sidebar = () => {
   const navItems = [
     { name: 'Dashboard',  path: '/dashboard',  staffOnly: true },
     { name: 'Operations', path: '/operations',  staffOnly: false },
-    { name: 'Community',  path: '/community',   staffOnly: false },
+    { name: 'Community',  path: '/community',   staffOnly: true },
     { name: 'Reports',    path: '/reports',     staffOnly: true },
   ].filter(item => !item.staffOnly || isStaff);
 

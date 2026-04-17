@@ -40,7 +40,7 @@ function App() {
           <PrivateRoute><Layout><OperationsPortal /></Layout></PrivateRoute>
         } />
         <Route path="/community" element={
-          <PrivateRoute><Layout><CommunityManagement /></Layout></PrivateRoute>
+          <StaffRoute><Layout><CommunityManagement /></Layout></StaffRoute>
         } />
         <Route path="/reports" element={
           <StaffRoute><Layout><Reports /></Layout></StaffRoute>
