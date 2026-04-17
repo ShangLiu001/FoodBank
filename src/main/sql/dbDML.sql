@@ -53,16 +53,16 @@ INSERT INTO food_bank_branches (branch_num, branch_name, food_bank_id, address_i
 -- role: 0=Staff, 1=Volunteer | status: 0=Inactive, 1=Active
 -- ─────────────────────────────────────────
 INSERT INTO users (first_name, last_name, email, phone, password_hash, role, status, branch_id, address_id, driving_license_num) VALUES
-  ('Alice',  'Nguyen', 'alice.nguyen@bafb.org',  '6175551001', 'hashed_pw_1',  0, 1, 1, 7,    'MA-001-ALICE'),
-  ('Bob',    'Smith',  'bob.smith@bafb.org',     '6175551002', 'hashed_pw_2',  0, 1, 1, 8,    NULL),
-  ('Carol',  'Lee',    'carol.lee@bafb.org',     '6175551003', 'hashed_pw_3',  1, 1, 2, 7,    'MA-003-CAROL'), -- shares address with Alice
-  ('David',  'Kim',    'david.kim@bafb.org',     '7815551004', 'hashed_pw_4',  0, 1, 3, NULL, NULL),
-  ('Eva',    'Patel',  'eva.patel@bafb.org',     '7815551005', 'hashed_pw_5',  1, 1, 3, NULL, 'MA-005-EVAP'),
-  ('Frank',  'Ortiz',  'frank.ortiz@glfp.org',   '6175551006', 'hashed_pw_6',  0, 1, 6, 9,    NULL),
-  ('Grace',  'Wang',   'grace.wang@glfp.org',    '6175551007', 'hashed_pw_7',  1, 1, 6, 9,    'MA-007-GRACE'), -- shares address with Frank
-  ('Henry',  'Brown',  'henry.brown@glfp.org',   '6175551008', 'hashed_pw_8',  0, 1, 7, NULL, NULL),
-  ('Iris',   'Chen',   'iris.chen@glfp.org',     '6175551009', 'hashed_pw_9',  1, 0, 7, NULL, 'MA-009-IRIS'),
-  ('James',  'Taylor', 'james.taylor@glfp.org',  '7815551010', 'hashed_pw_10', 0, 1, 7, NULL, NULL);
+  ('Alice',  'Nguyen', 'alice.nguyen@bafb.org',  '6175551001', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK',  0, 1, 1, 7,    'MA-001-ALICE'),
+  ('Bob',    'Smith',  'bob.smith@bafb.org',     '6175551002', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK',  0, 1, 1, 8,    NULL),
+  ('Carol',  'Lee',    'carol.lee@bafb.org',     '6175551003', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK',  1, 1, 2, 7,    'MA-003-CAROL'), -- shares address with Alice
+  ('David',  'Kim',    'david.kim@bafb.org',     '7815551004', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK',  0, 1, 3, NULL, NULL),
+  ('Eva',    'Patel',  'eva.patel@bafb.org',     '7815551005', '$2a$10$zalykcyWtVC4C766e5CLoOChHtbWurExUm1Vrkw42IISO/u6dp1b.',  1, 1, 3, NULL, 'MA-005-EVAP'),
+  ('Frank',  'Ortiz',  'frank.ortiz@glfp.org',   '6175551006', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK',  0, 1, 6, 9,    NULL),
+  ('Grace',  'Wang',   'grace.wang@glfp.org',    '6175551007', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK',  1, 1, 6, 9,    'MA-007-GRACE'), -- shares address with Frank
+  ('Henry',  'Brown',  'henry.brown@glfp.org',   '6175551008', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK',  0, 1, 7, NULL, NULL),
+  ('Iris',   'Chen',   'iris.chen@glfp.org',     '6175551009', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK',  1, 0, 7, NULL, 'MA-009-IRIS'),
+  ('James',  'Taylor', 'james.taylor@glfp.org',  '7815551010', '$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK', 0, 1, 7, NULL, NULL);
 
 -- ─────────────────────────────────────────
 -- VOLUNTEERS
