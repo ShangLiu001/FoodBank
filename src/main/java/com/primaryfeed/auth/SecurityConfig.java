@@ -53,6 +53,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/donors/**").hasAnyRole("STAFF", "VOLUNTEER")
                         .requestMatchers("/api/volunteers/**").hasAnyRole("STAFF", "VOLUNTEER")
                         .requestMatchers("/api/shifts/**").hasAnyRole("STAFF", "VOLUNTEER")
+                        .requestMatchers("/api/lookups/**").hasAnyRole("STAFF", "VOLUNTEER")
+                        .requestMatchers("/api/branches").hasAnyRole("STAFF", "VOLUNTEER")
                         // Fallback
                         .anyRequest().authenticated()
                 )
