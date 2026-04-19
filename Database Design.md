@@ -1,6 +1,4 @@
-# CLAUDE.md — PrimaryFeed
-
-This file provides context for Claude when working on the PrimaryFeed project.
+# Database Design.md
 
 ---
 
