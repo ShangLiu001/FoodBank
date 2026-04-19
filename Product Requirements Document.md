@@ -1,4 +1,4 @@
-# PrimaryFeed — Minimum Viable Product (MVP) Requirements Document
+# Minimum Viable Product (MVP) Requirements Document
 
 **Project:** PrimaryFeed Food Bank Management System
 **Team:** The Primary Keys (Group 6 — CS 5200)
