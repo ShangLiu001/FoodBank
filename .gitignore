@@ -11,6 +11,6 @@ frontend/node/
 node/
 src/main/resources/static/
 *~
-.claude/
+
 .env
 .env.production
