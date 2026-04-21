@@ -382,22 +382,12 @@ mvn test -X
 ```
 
 ### Coverage
-
-| Test Class | Tests | Coverage |
-|---|---|---|
-| `AuthenticationFlowTest` | 3 | JWT login, invalid credentials, inactive user |
-| `AuthorizationTest` | 3 | Role-based access control (staff vs. volunteer) |
-| `DonationFlowIntegrationTest` | 4 | Triggers: create/increment inventory, batch separation |
-| `DistributionFlowIntegrationTest` | 3 | Triggers: decrement inventory, stock validation |
-| `UserCreationTest` | 4 | Role validation triggers (staff/volunteer) |
-| `ShiftOverlapTest` | 3 | Volunteer shift overlap prevention |
-| `SmokeTest` | 1 | End-to-end: donation → inventory → distribution |
+Test reports are published automatically by GitHub Actions on every push and PR. See the Test Results check on any commit or pull request for detailed per-test output.
 
 **Test data:**
 Tests use dedicated test-specific data to avoid conflicts with seed data:
 - Test users: `user_id` 1000+ (staff@test.com, volunteer@test.com)
 - Test food items: `TEST-001`, `TEST-002`, `TEST-003`, `TEST-004` (SKU prefix to avoid production SKU conflicts)
-- BCrypt password for all test users: `test123` (hash: `$2a$10$p8VI5TWq/Z2tVeh4tXt.HON.lU5L1/qjC.TXGPo2GJxctbKxkuJaK`)
 
 ### CI/CD
 
