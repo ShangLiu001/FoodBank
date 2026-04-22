@@ -25,86 +25,102 @@ PrimaryFeed is a food bank management system built around a centralized MySQL re
 
 ### Prerequisites
 
-- **Java 25+** (or Java 21+)
-- **MySQL 8** (running locally on port 3306 (default))
+- **Java 17+**
+- **MySQL 8** (running locally on port 3306)
 - **Maven 3.8+**
 - **Docker** (required for integration tests — TestContainers spins up a real MySQL instance)
 
-> **Note:** The frontend (React/Vite) is built automatically by Maven via frontend-maven-plugin during mvn package. No separate Node.js install is required. To run the frontend standalone with Vite HMR (e.g. against the GCP backend), see [frontend/README.md](frontend/README.md).
+> **Note:** The frontend (React/Vite) is built automatically by Maven via `frontend-maven-plugin` during `mvn package`. No separate Node.js install is required for bundled mode. To run the frontend standalone with Vite HMR (e.g. during active UI development against a local or GCP backend), see [frontend/README.md](frontend/README.md).
 
-### Database Setup
-
-The fastest way to set up the local database is through `execute.sql`, which sources all SQL files in the correct order:
+### 1. Clone the repository
 
 ```bash
-mysql -u root -p < src/main/sql/execute.sql
+git clone git@github.com:ShangLiu001/FoodBank.git
+cd FoodBank
 ```
 
-This runs the following files in order:
+### 2. Set up the database
 
-| Step | File | Purpose |
-|---|---|---|
-| 1 | `dbDDL.sql` | Creates the database (if not exists), tables, views, triggers, and procedures |
-| 2 | `dbDML.sql` | Seeds sample data (food banks, branches, users, donors, beneficiaries, inventory) |
-
-> **Order matters:** The DDL file sources `dbTRIGGERS.sql` and `dbPROCS.sql` internally — triggers and procedures must exist before seed data is inserted, since DML inserts fire triggers automatically.
-
-<details>
-<summary><strong>Manual setup (if you prefer step-by-step)</strong></summary>
+`dbDDL.sql` internally sources `dbTRIGGERS.sql` and `dbPROCS.sql`, so you must use the **MySQL interactive client** — piping with `mysql < file` does not process `source` commands. You also need to `cd` into the SQL directory first so relative paths resolve.
 
 ```bash
-# 1. Run DDL (creates database, tables, views, triggers, procedures)
-mysql -u root -p < src/main/sql/dbDDL.sql
+# Navigate to the SQL directory (required — source uses relative paths)
+cd src/main/sql
 
-# 2. Run DML (seed data)
-mysql -u root -p < src/main/sql/dbDML.sql
+# Open the MySQL client (you will be prompted for your password)
+mysql -u root -p
 ```
 
-</details>
+Then inside the MySQL prompt, run these two commands in order:
+
+```sql
+source dbDDL.sql
+source dbDML.sql
+```
+
+| File | What it does |
+|---|---|
+| `dbDDL.sql` | Creates the `primaryfeed` database, all tables, views, and internally sources `dbTRIGGERS.sql` and `dbPROCS.sql` |
+| `dbDML.sql` | Seeds sample data — food banks, branches, users, donors, beneficiaries, inventory |
+
+> **Why not `execute.sql`?** `execute.sql` is a demo/test script: it runs sample queries, calls stored procedures, and intentionally raises an error at the end (to test the below-zero guard). Using it for setup will flood your terminal with output and end with a scary-looking `ERROR 1644`. Use `dbDDL.sql` + `dbDML.sql` directly instead.
+
+When done, exit MySQL and return to the project root:
+
+```bash
+exit         # exits the MySQL client
+cd ../../..  # back to FoodBank/
+```
 
 <details>
 <summary><strong>Resetting the database</strong></summary>
 
-```bash
-# Drop all tables and start fresh
-mysql -u root -p < src/main/sql/dbDROP.sql
+Drop everything and start fresh:
 
-# Then re-run execute.sql
-mysql -u root -p < src/main/sql/execute.sql
+```bash
+cd src/main/sql
+mysql -u root -p
+```
+
+```sql
+source dbDROP.sql
+source dbDDL.sql
+source dbDML.sql
 ```
 
 </details>
 
-### Application Setup
+### 3. Configure database credentials
 
-1. Clone this repository
-   ```bash
-   git clone git@github.com:ShangLiu001/FoodBank.git
-   cd FoodBank
-   ```
-   
-2. **Configure database credentials** — create `src/main/resources/application-local.properties`:
-   ```properties
-   spring.datasource.url=jdbc:mysql://localhost:3306/primaryfeed
-   spring.datasource.username=root
-   spring.datasource.password=
-   ```
+Create `src/main/resources/application-local.properties` with your local MySQL credentials (this file is git-ignored and overrides `application.properties` when using the `local` profile):
 
-3. **Build:**
-   ```bash
-   mvn clean package -DskipTests
-   ```
+```properties
+spring.datasource.url=jdbc:mysql://localhost:3306/primaryfeed?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&defaultAuthenticationPlugin=com.mysql.cj.protocol.a.authentication.CachingSha2PasswordPlugin
+spring.datasource.username=root
+spring.datasource.password=YOUR_ROOT_PASSWORD
+```
 
-4. **Run:**
-   ```bash
-   mvn spring-boot:run -Dspring-boot.run.profiles=local
-   ```
+> Replace `YOUR_ROOT_PASSWORD` with your MySQL root password (empty string `""` if you have none).
 
-5. **Server starts on:** `http://localhost:8080`
+> **Why `defaultAuthenticationPlugin`?** MySQL 8.4 removed the `mysql_native_password` plugin. Without this parameter, the JDBC connector initiates the handshake requesting `mysql_native_password` and the server rejects it with `Plugin 'mysql_native_password' is not loaded`. This parameter tells the connector to use `caching_sha2_password` from the start.
+
+### 4. Build and run
+
+```bash
+# Build (skips tests to avoid needing Docker at build time)
+mvn clean package -DskipTests
+
+# Run with local profile (picks up application-local.properties)
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+**Server starts on:** `http://localhost:8080`
+
+The React frontend is served at the same origin — open `http://localhost:8080` in your browser.
 
 ### API Documentation
 
-**Swagger UI:** http://localhost:8080/swagger-ui/index.html
+**Swagger UI:** `http://localhost:8080/swagger-ui/index.html`
 
 All endpoint details, request/response schemas, and interactive testing available in Swagger.
 
@@ -113,7 +129,7 @@ All endpoint details, request/response schemas, and interactive testing availabl
 | Role | Email | Password |
 |---|---|---|
 | **STAFF** (full access including reports) | `alice.nguyen@bafb.org` | `test123` |
-| **VOLUNTEER** (operational access, no reports) | `bob.tran@bafb.org` | `test123` |
+| **VOLUNTEER** (operational access, no reports) | `carol.lee@bafb.org` | `test123` |
 
 ---
 
@@ -121,7 +137,7 @@ All endpoint details, request/response schemas, and interactive testing availabl
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 25 (or Java 21+), Spring Boot 3.5.0 |
+| Backend | Java 17+, Spring Boot 3.5.0 |
 | ORM | Spring Data JPA / Hibernate 6 |
 | Database | MySQL 8 |
 | Auth | JWT (stateless, Spring Security) |
@@ -182,7 +198,6 @@ users (supertype — identity, credentials, branch assignment)
 ```
 
 **Creating a user:** `POST /api/users` creates both the `users` row AND the appropriate subtype row (staff or volunteers) in one API call. The `role` field determines which subtype is created.
-
 ### Non-Login Entities
 
 **Donors** and **Beneficiaries** do not have system accounts. They are records managed by staff/volunteers on their behalf:
@@ -263,7 +278,7 @@ Example calls and verification queries are in `src/main/sql/dbPROCSCALL.sql`.
 | View | Purpose |
 |---|---|
 | `vw_expiring_inventory` | Items with `quantity > 0` expiring within 3 months, with computed `days_until_expiry`. Expiry tiers: perishable categories (Produce/Dairy/Meat/Seafood/Bakery) = 7 days; others = 90 days |
-| `vw_volunteer_hours_log` | Volunteer shifts joined with user names, with `total_hours` formatted as `Xh Ym` |
+| `vw_volunteer_hours_log_last_30_days` | Volunteer shifts from the last 30 days joined with user names, with `total_hours` formatted as `Xh Ym` |
 
 ### Critical Design Decisions
 

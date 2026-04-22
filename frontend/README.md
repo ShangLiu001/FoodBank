@@ -1,11 +1,11 @@
 # PrimaryFeed — Frontend
 
-React SPA for the PrimaryFeed food bank management system. This guide covers running the frontend standalone against a remote API (e.g. the GCP-hosted backend). For bundled mode where the frontend is built into the Spring Boot JAR, see the [main README](../README.md).
+React SPA for the PrimaryFeed food bank management system. This guide covers running the frontend standalone with Vite HMR against a local or remote backend — useful for active UI development. For the normal setup where Maven bundles everything into one JAR, see the [main README](../README.md).
 
 ## Prerequisites
 
 - Node.js 18+
-- A running PrimaryFeed backend (e.g. GCP at `http://34.10.48.147:8080`)
+- A running PrimaryFeed backend — either local (`http://localhost:8080`) or GCP (`http://34.10.48.147:8080`)
 
 ## Setup
 
@@ -14,17 +14,24 @@ cd frontend
 npm install
 ```
 
-Configure Vite to proxy API requests to your backend. In `vite.config.js`:
+Add a dev proxy to `vite.config.js` so Vite forwards `/api/*` requests to your backend. Add the `server.proxy` block (keep the existing `build` block):
 
 ```js
 export default defineConfig({
+  plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://34.10.48.147:8080'  // or http://localhost:8080 for local backend
+      '/api': 'http://localhost:8080'   // change to GCP URL if using remote backend
     }
+  },
+  build: {
+    outDir: '../src/main/resources/static',
+    emptyOutDir: true
   }
 })
 ```
+
+> **Important:** Do not commit this proxy change — it's only needed for the Vite dev server. In bundled mode (Maven build), frontend and backend share the same origin, so relative paths work natively without a proxy.
 
 Then start the dev server:
 
@@ -32,9 +39,7 @@ Then start the dev server:
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`. All `/api/*` requests are proxied to the backend, so the frontend code uses relative paths (e.g. `fetch('/api/auth/login')`) in both standalone and bundled mode — no environment variables needed.
-
-> **Note:** The proxy config only applies to the Vite dev server. In bundled mode (built via Maven into the Spring Boot JAR), frontend and backend share the same origin so relative paths work natively.
+The app will be available at `http://localhost:5173`. All `/api/*` requests are proxied to the backend — no environment variables needed.
 
 ## Login
 
@@ -42,8 +47,8 @@ Use any account from the database. Example accounts:
 
 | Email | Password | Role |
 |---|---|---|
-| alice.nguyen@bafb.org | password123 | Staff |
-| bob.tran@bafb.org | password123 | Volunteer |
+| alice.nguyen@bafb.org | test123 | Staff |
+| carol.lee@bafb.org | test123 | Volunteer |
 
 Staff accounts see Dashboard and Reports. Volunteer accounts see Operations and Community only.
 
