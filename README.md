@@ -79,7 +79,7 @@ mysql -u root -p < src/main/sql/execute.sql
 
 1. Clone this repository
    ```bash
-   git clone git@github.com:ShangLiu001/FoodBank.git
+   git clone https://github.com/ShangLiu001/FoodBank.git
    cd FoodBank
    ```
    
