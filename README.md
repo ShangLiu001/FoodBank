@@ -77,24 +77,30 @@ mysql -u root -p < src/main/sql/execute.sql
 
 ### Application Setup
 
-1. **Configure database credentials** — create `src/main/resources/application-local.properties`:
+1. Clone this repository
+   ```bash
+   git clone git@github.com:ShangLiu001/FoodBank.git
+   cd FoodBank
+   ```
+   
+2. **Configure database credentials** — create `src/main/resources/application-local.properties`:
    ```properties
    spring.datasource.url=jdbc:mysql://localhost:3306/primaryfeed
    spring.datasource.username=root
    spring.datasource.password=
    ```
 
-2. **Build:**
+3. **Build:**
    ```bash
    mvn clean package -DskipTests
    ```
 
-3. **Run:**
+4. **Run:**
    ```bash
    mvn spring-boot:run -Dspring-boot.run.profiles=local
    ```
 
-4. **Server starts on:** `http://localhost:8080`
+5. **Server starts on:** `http://localhost:8080`
 
 ### API Documentation
 
